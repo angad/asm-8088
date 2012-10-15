@@ -16,7 +16,7 @@ NAME MISC
 ; or distributed without prior permission from the author.
 ;---------------------------------------------------------------------------
 
-public	print_char, print_2hex, iodefine, set_timer2
+public	print_char, print_2hex, iodefine, set_timers
 extrn 	serial_rec_action:far, timer2_action:far
 
 INT_VEC_SEG	SEGMENT		AT 	0H
@@ -191,21 +191,59 @@ DONE:
 		RET
 CHAR2HEX	ENDP
 
-Set_timer2      proc Far
+Set_timers      proc Far
 	push ax
 	push dx
-	;Initialize Timer2	
+
+	;TIMERS increment at the rate of 
+	;1/4 of CLKOUT Frequency
+	;For our case, 8Mhz CLKOUT
+	;125us = 250 Cycles on the timer
+	;125us = 1000 Cycles on the 80188
+
+	;Initialize Timer0
+	mov ax, 0;
+	mov dx, T0_CNT;
+	OUT DX, AL
+
+	MOV AX, 250; ;125us = 250 cycles
+	MOV DX, T0_CA;
+	OUT DX, AL
+
+	;1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 1
+	;EN INH INT
+
+	MOV AX,0E001H
+	MOV DX, T0_CON
+	OUT DX, AL
+	
+	;Initialize Timer1	-- Keypad
+	mov ax, 0;
+	mov dx, T1_CNT;
+	OUT DX, AL
+
+	MOV AX, 40000;
+	MOV DX, T1_CA;
+	OUT DX, AL
+
+	MOV AX,0E001H
+	MOV DX, T1_CON
+	OUT DX, AL
+
+	;Initialize Timer2 -- LED
 	mov ax, 0;
 	mov dx, T2_CNT;
 	OUT DX, AL
 
-	MOV AX, 60000;
+	MOV AX, 6600;
 	MOV DX, T2_CA;
 	OUT DX, AL
 
 	MOV AX,0E001H
 	MOV DX, T2_CON
 	OUT DX, AL
+
+;---------------------------
 
 	MOV DX, TIMER_CTRL
 	MOV AL, 01H
@@ -214,7 +252,7 @@ Set_timer2      proc Far
 	pop ax
 
 ret
-Set_timer2 endp
+Set_timers endp
 ; ************************************************************************
 ;			INTERRUPT ROUTINES				 *
 ; ************************************************************************
@@ -307,6 +345,21 @@ L_TX3:
 ; **************** End of SERIAL_INTR service routine ************************
 
 
+; **************** Start of TIMER0_INTR service routine ******************
+TIMER1_INTR:
+		PUSH 	AX
+		
+; Action to be taken on timer1 interrupt to be written by user
+		CALL	FAR PTR TIMER2_ACTION
+              
+		POP	AX		;return interrupt
+                ;RESET_INT_CTL	
+                MOV DX, EOI
+                MOV AX, 8
+                OUT DX, AL
+		IRET
+; **************** End of TIMER2_INTR service routine ************************
+
 
 ; **************** Start of TIMER0_INTR service routine ******************
 TIMER2_INTR:
@@ -316,7 +369,7 @@ TIMER2_INTR:
 		CALL	FAR PTR TIMER2_ACTION
               
 		POP	AX		;return interrupt
-                ;RESET_INT_CTL
+                ;RESET_INT_CTL	
                 MOV DX, EOI
                 MOV AX, 8
                 OUT DX, AL

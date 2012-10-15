@@ -25,35 +25,92 @@ STACK_SEG	ENDS
 
 
 DATA_SEG	SEGMENT
-	TIMER0_MESS	DB	10,13,'TIMER2 INTERRUPT    '
+	TIMER0_MESS	DB	10,13,'TIMER0 INTERRUPT    '
+	
+	; -- define messages for other timers
+
 	T_COUNT		DB	2FH
 	T_COUNT_SET	DB	2FH
 	REC_MESS	DB	10,13,'Period of timer0 =     '
 DATA_SEG	ENDS
 
+;------------------------------------------
+;--CHIP SELECTS
+; 8255 register addresses
+; PCS1
+IC8255_PORTA_ADDR EQU 80H;
+IC8255_PORTB_ADDR EQU 81H;
+IC8255_PORTC_ADDR EQU 82H;
+IC8255_CW_ADDR    EQU 83H;
+
+PCS2_ADDR EQU 100H
+PCS3_ADDR EQU 180H
+
+;-------------------------------------------
 
 CODE_SEG	SEGMENT
 
 	PUBLIC		START
 
-ASSUME	CS:CODE_SEG, SS:STACK_SEG
+ASSUME	CS:CODE_SEG, SS:STACK_SEG, DS:DATA_SEG
 
 START:
 ;initialize stack area
-		MOV	AX,STACK_SEG		
-		MOV	SS,AX
-		MOV	SP,TOS
+		MOV	AX, STACK_SEG		
+		MOV	SS, AX
+		MOV	SP, TOS
+
+		MOV AX, DATA_SEG
+		MOV DS, AX
 
 ; Initialize the on-chip pheripherals
 		CALL	FAR PTR	IODEFINE
 		
+	;KEYPAD INIT
+
+	MOV DX, IC8255_CW_ADDR
+
+	;CW Register 
+	;Port C Lower Input, Port C Upper Output 
+	;Port B input, Port A output
+	;1 0 0 0 0 0 1 1
+
+	MOV AL, 83H
+	OUT DX, AL
+
+	;LED INIT
+
+	MOV DX, IC8255_PORTA_ADDR
+	MOV AL, 0FFH
+	OUT DX, AL
+
+; Initialize MCS
+
+; Initialize key code
 
 
 ; ^^^^^^^^^^^^^^^^^  Start of User Main Routine  ^^^^^^^^^^^^^^^^^^
-    call set_timer2
-                 STI
+    ;call set_timers
+      STI
 
-NEXT:     JMP NEXT
+NEXT:     
+
+	MOV CH, 01111111B ;8 on 7-segment (Latch 1, PCS2)
+	MOV CL, 10000000B ;1st 7-segment (Latch 2, PCS3)
+
+	MOV DX, PCS3_ADDR
+	MOV AL, CL
+	OUT DX, AL
+	
+	MOV DX, PCS2_ADDR
+	MOV AL, CH
+	OUT DX, AL
+
+
+;MAIN LOOP
+
+
+JMP NEXT
 
 ; ^^^^^^^^^^^^^^^ End of User main routine ^^^^^^^^^^^^^^^^^^^^^^^^^
 
