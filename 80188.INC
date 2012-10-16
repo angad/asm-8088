@@ -98,7 +98,7 @@
          T0_CON    EQU      0FF56H ;
          T0_CB     EQU      0FF54H ;
          T0_CA     EQU      0FF52H ;
-         TO_CNT    EQU      0FF50H   
+         T0_CNT    EQU      0FF50H   
          
 ; Timer Control Data
 

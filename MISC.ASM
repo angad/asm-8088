@@ -17,7 +17,7 @@ NAME MISC
 ;---------------------------------------------------------------------------
 
 public	print_char, print_2hex, iodefine, set_timers
-extrn 	serial_rec_action:far, timer2_action:far
+extrn 	serial_rec_action:far, timer0_action:far, timer1_action:far, timer2_action:far
 
 INT_VEC_SEG	SEGMENT		AT 	0H
 ; Define the interrupt vector locations
@@ -346,11 +346,11 @@ L_TX3:
 
 
 ; **************** Start of TIMER0_INTR service routine ******************
-TIMER1_INTR:
+TIMER0_INTR:
 		PUSH 	AX
 		
 ; Action to be taken on timer1 interrupt to be written by user
-		CALL	FAR PTR TIMER2_ACTION
+		CALL	FAR PTR TIMER0_ACTION
               
 		POP	AX		;return interrupt
                 ;RESET_INT_CTL	
@@ -358,10 +358,26 @@ TIMER1_INTR:
                 MOV AX, 8
                 OUT DX, AL
 		IRET
-; **************** End of TIMER2_INTR service routine ************************
+; **************** End of TIMER0_INTR service routine ************************
 
 
-; **************** Start of TIMER0_INTR service routine ******************
+; **************** Start of TIMER1_INTR service routine ******************
+TIMER1_INTR:
+		PUSH 	AX
+		
+; Action to be taken on timer0 interrupt to be written by user
+		CALL	FAR PTR TIMER1_ACTION
+              
+		POP	AX		;return interrupt
+                ;RESET_INT_CTL	
+                MOV DX, EOI
+                MOV AX, 8
+                OUT DX, AL
+		IRET
+; **************** End of TIMER1_INTR service routine ************************
+
+
+; **************** Start of TIMER2_INTR service routine ******************
 TIMER2_INTR:
 		PUSH 	AX
 		
@@ -375,6 +391,8 @@ TIMER2_INTR:
                 OUT DX, AL
 		IRET
 ; **************** End of TIMER2_INTR service routine ************************
+
+
 
 MISC_ROUTINE	ENDS
 

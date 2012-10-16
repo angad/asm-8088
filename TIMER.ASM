@@ -14,9 +14,9 @@ NAME TIMER
 ; or distributed without prior permission from the author.
 ; =========================================================================
 
-public	serial_rec_action, timer2_action
+public	serial_rec_action, timer0_action, timer1_action, timer2_action
 extrn	print_char:far, print_2hex:far, iodefine:far
-extrn   set_timer2:far
+extrn   set_timers:far
 
 STACK_SEG	SEGMENT
 		DB	256 DUP(?)
@@ -26,6 +26,8 @@ STACK_SEG	ENDS
 
 DATA_SEG	SEGMENT
 	TIMER0_MESS	DB	10,13,'TIMER0 INTERRUPT    '
+	TIMER1_MESS	DB	10,13,'TIMER1 INTERRUPT    '
+	TIMER2_MESS	DB	10,13,'TIMER2 INTERRUPT    '
 	
 	; -- define messages for other timers
 
@@ -90,7 +92,7 @@ START:
 
 
 ; ^^^^^^^^^^^^^^^^^  Start of User Main Routine  ^^^^^^^^^^^^^^^^^^
-    ;call set_timers
+    call set_timers
       STI
 
 NEXT:     
@@ -156,6 +158,79 @@ S_RET:
 SERIAL_REC_ACTION	ENDP
 
 
+;--------------------------------------------------------------
+
+;--------------------TIMER 0 ----------------------------------
+
+TIMER0_ACTION	PROC	FAR
+		PUSH	AX
+		PUSH	DS
+		PUSH	BX
+		PUSH	CX
+
+		MOV	AX,DATA_SEG
+		MOV	DS,AX
+	
+		DEC	DS:T_COUNT
+		JNZ	T0_NEXT1
+		MOV	AL,DS:T_COUNT_SET
+		MOV	DS:T_COUNT,AL
+
+		MOV	CX,20
+		MOV	BX,0H
+T0_NEXT0:
+		MOV	AL,DS:TIMER0_MESS[BX]
+		INC	BX
+		CALL 	FAR PTR PRINT_CHAR
+		LOOP	T0_NEXT0
+
+T0_NEXT1:	
+		POP	CX
+		POP	BX
+		POP	DS
+		POP 	AX
+		RET
+TIMER0_ACTION	ENDP
+
+;--------------------------------------------------------------
+
+;--------------------TIMER 1 ----------------------------------
+
+
+TIMER1_ACTION	PROC	FAR
+		PUSH	AX
+		PUSH	DS
+		PUSH	BX
+		PUSH	CX
+
+		MOV	AX,DATA_SEG
+		MOV	DS,AX
+	
+		DEC	DS:T_COUNT
+		JNZ	T1_NEXT1
+		MOV	AL,DS:T_COUNT_SET
+		MOV	DS:T_COUNT,AL
+
+		MOV	CX,20
+		MOV	BX,0H
+T1_NEXT0:
+		MOV	AL,DS:TIMER1_MESS[BX]
+		INC	BX
+		CALL 	FAR PTR PRINT_CHAR
+		LOOP	T1_NEXT0
+
+T1_NEXT1:	
+		POP	CX
+		POP	BX
+		POP	DS
+		POP 	AX
+		RET
+TIMER1_ACTION	ENDP
+
+;--------------------------------------------------------------
+
+;--------------------TIMER 2 ----------------------------------
+
 
 TIMER2_ACTION	PROC	FAR
 		PUSH	AX
@@ -167,19 +242,19 @@ TIMER2_ACTION	PROC	FAR
 		MOV	DS,AX
 	
 		DEC	DS:T_COUNT
-		JNZ	T_NEXT1
+		JNZ	T2_NEXT1
 		MOV	AL,DS:T_COUNT_SET
 		MOV	DS:T_COUNT,AL
 
 		MOV	CX,20
 		MOV	BX,0H
-T_NEXT0:
-		MOV	AL,DS:TIMER0_MESS[BX]
+T2_NEXT0:
+		MOV	AL,DS:TIMER2_MESS[BX]
 		INC	BX
 		CALL 	FAR PTR PRINT_CHAR
-		LOOP	T_NEXT0
+		LOOP	T2_NEXT0
 
-T_NEXT1:	
+T2_NEXT1:	
 		POP	CX
 		POP	BX
 		POP	DS
@@ -187,6 +262,7 @@ T_NEXT1:
 		RET
 TIMER2_ACTION	ENDP
 
+;--------------------------------------------------------------
 
 CODE_SEG	ENDS
 END
