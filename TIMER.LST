@@ -1,9 +1,9 @@
-8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    16:02:56  10/16/;2  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    15:10:04  10/27/;2  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE TIMER
 OBJECT MODULE PLACED IN TIMER.OBJ
-ASSEMBLER INVOKED BY:  C:\CG3002~1\ASM\ASM86.EXE TIMER.ASM
+ASSEMBLER INVOKED BY:  C:\USERS\ANGADS~1\DOWNLO~1\1TRYIN~1\LAB1\ASM-8088\ASM86.EXE TIMER.ASM
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
 0042 2F                     34             T_COUNT         DB      2FH
 0043 2F                     35             T_COUNT_SET     DB      2FH
 0044 0A                     36             REC_MESS        DB      10,13,'Period of timer0 =     '
-8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    16:02:56  10/16/;2  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    15:10:04  10/27/;2  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
                             84     
 001A BA8000                 85             MOV DX, IC8255_PORTA_ADDR
 001D B0FF                   86             MOV AL, 0FFH
-8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    16:02:56  10/16/;2  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    15:10:04  10/27/;2  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
 0053 FE0E4300              139                     DEC     DS:T_COUNT_SET
 0057 FE0E4300              140                     DEC     DS:T_COUNT_SET
                            141     
-8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    16:02:56  10/16/;2  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    15:10:04  10/27/;2  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            194     
                            195     ;--------------------------------------------------------------
                            196     
-8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    16:02:56  10/16/;2  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    15:10:04  10/27/;2  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
 00E2 B91400                249                     MOV     CX,20
 00E5 BB0000                250                     MOV     BX,0H
 00E8                       251     T2_NEXT0:
-8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    16:02:56  10/16/;2  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    TIMER                                                    15:10:04  10/27/;2  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE

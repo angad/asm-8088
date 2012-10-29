@@ -25,7 +25,6 @@ STACK_SEG	ENDS
 
 
 DATA_SEG	SEGMENT
-	MAIN_MESS   DB  10,13,'Main Loop           '
 	TIMER0_MESS	DB	10,13,'TIMER0 INTERRUPT    '
 	TIMER1_MESS	DB	10,13,'TIMER1 INTERRUPT    '
 	TIMER2_MESS	DB	10,13,'TIMER2 INTERRUPT    '
@@ -48,7 +47,6 @@ IC8255_CW_ADDR    EQU 83H;
 
 PCS2_ADDR EQU 100H
 PCS3_ADDR EQU 180H
-PCS4_ADDR EQU 200H
 
 ;-------------------------------------------
 
@@ -59,7 +57,6 @@ CODE_SEG	SEGMENT
 ASSUME	CS:CODE_SEG, SS:STACK_SEG, DS:DATA_SEG
 
 START:
-
 ;initialize stack area
 		MOV	AX, STACK_SEG		
 		MOV	SS, AX
@@ -85,44 +82,32 @@ START:
 
 	;LED INIT
 
-	;MOV DX, IC8255_PORTA_ADDR
-	;MOV AL, 01010101B
-	;OUT DX, AL
+	MOV DX, IC8255_PORTA_ADDR
+	MOV AL, 0FFH
+	OUT DX, AL
+
 ; Initialize MCS
 
 ; Initialize key code
 
 
 ; ^^^^^^^^^^^^^^^^^  Start of User Main Routine  ^^^^^^^^^^^^^^^^^^
-    ;call set_timers
-    ;  STI
+    call set_timers
+      STI
 
 NEXT:     
 
-	;MOV BH, 01111111B ;8 on 7-segment (Latch 1, PCS2)
-	;MOV BL, 10000000B ;1st 7-segment (Latch 2, PCS3)
+	MOV CH, 01111111B ;8 on 7-segment (Latch 1, PCS2)
+	MOV CL, 10000000B ;1st 7-segment (Latch 2, PCS3)
 
-	;MOV BX, 0
-	;MOV CL, 20
-	BCD_LOOP:
-	
-
-	 MOV	BX,0H
- 	 MOV	AL,DS:TIMER2_MESS[BX]
-	 CALL 	FAR PTR PRINT_CHAR
-	
-	;LED Alternate, just to check loop
-	 MOV DX, IC8255_PORTA_ADDR
-	 MOV AL, 10101010B
-	 OUT DX, AL
-
-	;MOV DX, PCS3_ADDR
-	;MOV AL, 00000000B
-	;OUT DX, AL
-
-	MOV DX, PCS2_ADDR
-	MOV AL, 0FFH
+	MOV DX, PCS3_ADDR
+	MOV AL, CL
 	OUT DX, AL
+	
+	MOV DX, PCS2_ADDR
+	MOV AL, CH
+	OUT DX, AL
+
 
 ;MAIN LOOP
 
@@ -145,10 +130,6 @@ SERIAL_REC_ACTION	PROC	FAR
 
 		INC	DS:T_COUNT_SET
 		INC	DS:T_COUNT_SET
-		
-		MOV DX, IC8255_PORTA_ADDR
-		MOV AL, 0FFH
-		OUT DX, AL
 
 		JMP	S_NEXT0
 S_FAST:
@@ -267,9 +248,6 @@ TIMER2_ACTION	PROC	FAR
 
 		MOV	CX,20
 		MOV	BX,0H
-		
-		
-		
 T2_NEXT0:
 		MOV	AL,DS:TIMER2_MESS[BX]
 		INC	BX
