@@ -30,7 +30,7 @@ INT_VEC_SEG	SEGMENT		AT 	0H
 	OVERFLOW	DD	?	;not defined yet
 	ARRAY_BND	DD	?	;Array Bounds
                 ORG     020H
-        TIMER0_VEC      DD      TIMER0_INTR ;route for timer 0
+        TIMER0_VEC      DD      ? ;route for timer 0
 ; Interrupt control unit
 		ORG	030H
 	INTP0		DD	SERIAL_INTR
@@ -39,7 +39,7 @@ INT_VEC_SEG	SEGMENT		AT 	0H
 	INTP3		DD	?	;external, not used yet
         NUMERICS        DD      ?       ;
         RSVED           DD      ?       ;system reserved 
-        TIMER1_VEC      DD      TIMER1_INTR       ;route for timer 1
+        TIMER1_VEC      DD      ?       ;route for timer 1
         TIMER2_VEC      DD      TIMER2_INTR       ;Timer2 Route
            ;Reserved from 050H to 080H     
 	       ORG     080H
@@ -235,7 +235,7 @@ Set_timers      proc Far
 	mov dx, T2_CNT;
 	OUT DX, AL
 
-	MOV AX, 6600;
+	MOV AX, 60000;
 	MOV DX, T2_CA;
 	OUT DX, AL
 
@@ -349,7 +349,7 @@ L_TX3:
 TIMER0_INTR:
 		PUSH 	AX
 		
-; Action to be taken on timer0 interrupt to be written by user
+; Action to be taken on timer1 interrupt to be written by user
 		CALL	FAR PTR TIMER0_ACTION
               
 		POP	AX		;return interrupt
@@ -365,7 +365,7 @@ TIMER0_INTR:
 TIMER1_INTR:
 		PUSH 	AX
 		
-; Action to be taken on timer1 interrupt to be written by user
+; Action to be taken on timer0 interrupt to be written by user
 		CALL	FAR PTR TIMER1_ACTION
               
 		POP	AX		;return interrupt
@@ -381,7 +381,7 @@ TIMER1_INTR:
 TIMER2_INTR:
 		PUSH 	AX
 		
-; Action to be taken on timer2 interrupt to be written by user
+; Action to be taken on timer0 interrupt to be written by user
 		CALL	FAR PTR TIMER2_ACTION
               
 		POP	AX		;return interrupt
