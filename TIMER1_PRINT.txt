@@ -1,0 +1,354 @@
+$MOD186
+$EP
+NAME TIMER
+; Main program for uPD70208 microcomputer system
+;
+; Author: 	Dr Tay Teng Tiow
+; Address:     	Department of Electrical Engineering 
+;         	National University of Singapore
+;		10, Kent Ridge Crescent
+;		Singapore 0511.	
+; Date:   	6th September 1991
+;
+; This file contains proprietory information and cannot be copied 
+; or distributed without prior permission from the author.
+; =========================================================================
+
+public	serial_rec_action, timer0_action, timer1_action, timer2_action
+extrn	print_char:far, print_2hex:far, iodefine:far
+extrn   set_timers:far
+
+STACK_SEG	SEGMENT
+		DB	256 DUP(?)
+	TOS	LABEL	WORD
+STACK_SEG	ENDS
+
+
+DATA_SEG	SEGMENT
+	MAIN_MESS   DB  10,13,'Main Loop           '
+	TIMER0_MESS	DB	10,13,'TIMER0 INTERRUPT    '
+	TIMER1_MESS	DB	10,13,'TIMER1 INTERRUPT    '
+	TIMER2_MESS	DB	10,13,'TIMER2 INTERRUPT    '
+	
+	; -- define messages for other timers
+
+	T0_COUNT		DB	2FH
+	T0_COUNT_SET	DB	2FH
+	T1_COUNT		DB	2FH
+	T1_COUNT_SET	DB	2FH
+	T2_COUNT		DB	2FH
+	T2_COUNT_SET	DB	2FH
+
+	LED_SELECT  DB  0FEH
+	NUMBERS		DB	03FH, 006H, 05BH, 04FH, 066H, 06DH, 07DH, 007H, 07FH, 06FH
+	CURRENT_NUMBER DB 00H
+	REC_MESS	DB	10,13,'Period of timer0 =     '
+
+	 ;****Keypad******
+  KEY_DECODE 	DB 24 DUP(0)
+  LAST_FOUND 	DB 0H ; 0 NO KEY FOUND, 1 KEY FOUND
+  KEYPAD_INPUT 	DB 33 
+  ;**********
+
+
+DATA_SEG	ENDS
+
+;------------------------------------------
+;--CHIP SELECTS
+; 8255 register addresses
+; PCS1
+IC8255_PORTA_ADDR EQU 80H;
+IC8255_PORTB_ADDR EQU 81H;
+IC8255_PORTC_ADDR EQU 82H;
+IC8255_CW_ADDR    EQU 83H;
+
+PCS2_ADDR EQU 100H
+PCS3_ADDR EQU 180H
+PCS4_ADDR EQU 200H
+	
+
+
+;-------------------------------------------
+
+CODE_SEG	SEGMENT
+
+	PUBLIC		START
+
+ASSUME	CS:CODE_SEG, SS:STACK_SEG, DS:DATA_SEG
+
+START:
+
+;initialize stack area
+		MOV	AX, STACK_SEG		
+		MOV	SS, AX
+		MOV	SP, TOS
+
+		MOV AX, DATA_SEG
+		MOV DS, AX
+
+; Initialize the on-chip pheripherals
+		CALL	FAR PTR	IODEFINE
+		
+	;KEYPAD INIT
+
+	MOV DX, IC8255_CW_ADDR
+
+	;CW Register 
+	;Port C Lower Input, Port C Upper Output 
+	;Port B input, Port A output
+	;1 0 0 0 0 0 1 0
+
+	MOV AL, 82H
+	OUT DX, AL
+
+	;LED INIT
+
+	;MOV DX, IC8255_PORTA_ADDR
+	;MOV AL, 01010101B
+	;OUT DX, AL
+; Initialize MCS
+
+; Initialize key code
+
+; Initialize key code
+	
+	MOV DS:KEY_DECODE[0], 1
+	MOV DS:KEY_DECODE[1], 2
+	MOV DS:KEY_DECODE[2], 3
+	MOV DS:KEY_DECODE[3], 1
+	MOV DS:KEY_DECODE[4], 2
+	MOV DS:KEY_DECODE[5], 3
+	MOV DS:KEY_DECODE[6], 4
+	MOV DS:KEY_DECODE[7], 5
+	MOV DS:KEY_DECODE[8], 6
+	MOV DS:KEY_DECODE[9], 4
+	MOV DS:KEY_DECODE[10], 5
+	MOV DS:KEY_DECODE[11], 6
+	MOV DS:KEY_DECODE[12], 7
+	MOV DS:KEY_DECODE[13], 8
+	MOV DS:KEY_DECODE[14], 9
+	MOV DS:KEY_DECODE[15], 7
+	MOV DS:KEY_DECODE[16], 8
+	MOV DS:KEY_DECODE[17], 9
+	;MOV DS:KEY_DECODE[18], *
+	MOV DS:KEY_DECODE[19], 0
+	;MOV DS:KEY_DECODE[20], #
+	;MOV DS:KEY_DECODE[21], *
+	MOV DS:KEY_DECODE[22], 0
+	;MOV DS:KEY_DECODE[23], #
+
+
+
+; ^^^^^^^^^^^^^^^^^  Start of User Main Routine  ^^^^^^^^^^^^^^^^^^
+    call set_timers
+      STI
+
+NEXT:     
+
+	;MOV BH, 01111111B ;8 on 7-segment (Latch 1, PCS2)
+	;MOV BL, 10000000B ;1st 7-segment (Latch 2, PCS3)
+
+	;MOV BX, 0
+	;MOV CL, 20
+	;BCD_LOOP:
+	
+
+	 ;MOV	BX,0H
+ 	 ;MOV	AL,DS:TIMER2_MESS[BX]
+	 ;CALL 	FAR PTR PRINT_CHAR
+	
+	;LED Alternate, just to check loop
+	 MOV DX, IC8255_PORTA_ADDR
+	 MOV AL, 0FFH
+	 OUT DX, AL
+
+	;MOV DX, IC8255_PORTB_ADDR	;DX = Port B Address
+	;MOV AL, 0FFH
+	;OUT DX, AL				;
+
+	;MOV DX, IC8255_PORTC_ADDR
+	;MOV AL, 00H
+	;OUT DX, AL
+
+;MAIN LOOP
+
+
+JMP NEXT
+
+; ^^^^^^^^^^^^^^^ End of User main routine ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+SERIAL_REC_ACTION	PROC	FAR
+		PUSH	CX
+		PUSH 	BX
+		PUSH	DS
+
+		MOV	BX,DATA_SEG		;initialize data segment register
+		MOV	DS,BX
+
+		CMP	AL,'<'
+		JNE	S_FAST
+
+		INC	DS:T0_COUNT_SET
+		INC	DS:T0_COUNT_SET
+		
+		;MOV DX, IC8255_PORTA_ADDR
+		;MOV AL, 0FFH
+		;OUT DX, AL
+
+		JMP	S_NEXT0
+S_FAST:
+		CMP	AL,'>'
+		JNE	S_RET
+
+		DEC	DS:T0_COUNT_SET
+		DEC	DS:T0_COUNT_SET
+
+S_NEXT0:
+		MOV	CX,22			;initialize counter for message
+		MOV	BX,0
+
+S_NEXT1:	MOV	AL,DS:REC_MESS[BX]	;print message
+		call	FAR ptr print_char
+		INC	BX
+		LOOP	S_NEXT1
+
+		MOV	AL,DS:T0_COUNT_SET	;print current period of timer0
+		CALL	FAR PTR PRINT_2HEX
+S_RET:
+		POP	DS
+		POP	BX
+		POP	CX
+		RET
+SERIAL_REC_ACTION	ENDP
+
+
+;--------------------------------------------------------------
+
+;--------------------TIMER 0 ----------------------------------
+
+TIMER0_ACTION	PROC	FAR
+		PUSH	AX
+		PUSH	DS
+		PUSH	BX
+		PUSH	CX
+	MOV BL, 00H
+	
+	MOV AL, 00H
+	MOV DX, IC8255_PORTC_ADDR	;DX = Port B Address
+	OUT DX, AL					;
+	MOV DX, IC8255_PORTB_ADDR	;
+
+CHECK_KEY_CLOSED:	 			;Check when key is pressed. Keep looping here
+	IN AL, DX					;Move to AL, value in Port B. 
+
+	;AD0 - AD5 PCS3 CS for 7-segment
+	;7  6  5  4  3  2  1  0
+	;x  x  A5 A4 A3 A2 A1 A0
+	MOV DX, PCS3_ADDR
+	;MOV AL, LED_SELECT
+	;MOV AL, 00111110B
+	OUT DX, AL
+	ROL LED_SELECT, 01H
+
+	;AD0 - AD7 PCS2
+	;AD7 - DOT (MSB)
+		
+	MOV DX, PCS2_ADDR
+	MOV BL, CURRENT_NUMBER
+	MOV AL, NUMBERS[BX]
+
+	;MOV AL, 01111111B
+
+	OUT DX, AL
+	INC CURRENT_NUMBER
+	CMP CURRENT_NUMBER, 08H
+	JE RESET_CURRENT
+	JNE T0_NEXT1
+;---------------------------
+	DEC	DS:T0_COUNT
+	JNZ	T0_NEXT1
+	MOV	AL,DS:T0_COUNT_SET
+	MOV	DS:T0_COUNT,AL
+	MOV	BX,0H
+		
+RESET_CURRENT:
+	MOV CURRENT_NUMBER, 00H
+	DEC	DS:T0_COUNT
+	JNZ	T0_NEXT1
+	MOV	AL,DS:T0_COUNT_SET
+	MOV	DS:T0_COUNT,AL
+	MOV	BX,0H
+
+T0_NEXT1:	
+		POP	CX
+		POP	BX
+		POP	DS
+		POP 	AX
+		RET
+TIMER0_ACTION	ENDP
+
+;--------------------------------------------------------------
+
+;--------------------TIMER 1 ----------------------------------
+
+
+TIMER1_ACTION	PROC	FAR
+		PUSH	AX
+		PUSH	DS
+		PUSH	BX
+		PUSH	CX
+
+
+T1_NEXT1:	
+		POP	CX
+		POP	BX
+		POP	DS
+		POP 	AX
+		RET
+TIMER1_ACTION	ENDP
+
+;--------------------------------------------------------------
+
+;--------------------TIMER 2 ----------------------------------
+
+
+TIMER2_ACTION	PROC	FAR
+		PUSH	AX
+		PUSH	DS
+		PUSH	BX
+		PUSH	CX
+		MOV	AX,DATA_SEG
+		MOV	DS,AX
+	
+		DEC	DS:T2_COUNT
+		JNZ	T2_NEXT1
+		MOV	AL,DS:T2_COUNT_SET
+		MOV	DS:T2_COUNT,AL
+
+		MOV DX, IC8255_PORTA_ADDR
+		MOV AL, 01010101B
+		OUT DX, AL
+
+
+		MOV	CX,20
+		MOV	BX,0H
+T2_NEXT0:
+		MOV	AL,DS:TIMER2_MESS[BX]
+		INC	BX
+		CALL 	FAR PTR PRINT_CHAR
+		LOOP	T2_NEXT0
+
+T2_NEXT1:	
+		POP	CX
+		POP	BX
+		POP	DS
+		POP 	AX
+		RET
+
+TIMER2_ACTION	ENDP
+
+;--------------------------------------------------------------
+
+CODE_SEG	ENDS
+END

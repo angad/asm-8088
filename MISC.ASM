@@ -29,18 +29,19 @@ INT_VEC_SEG	SEGMENT		AT 	0H
 	BRK_3_VEC	DD	?	;not defined yet
 	OVERFLOW	DD	?	;not defined yet
 	ARRAY_BND	DD	?	;Array Bounds
-                ORG     020H
-        TIMER0_VEC      DD      ? ;route for timer 0
+		ORG     020H
+	TIMER0_VEC		DD		TIMER0_INTR ; 8 x 4 = 32
+     
 ; Interrupt control unit
 		ORG	030H
 	INTP0		DD	SERIAL_INTR
 	INTP1		DD	?       ;external, not used yet  
 	INTP2		DD	?	;external, not used yet
 	INTP3		DD	?	;external, not used yet
-        NUMERICS        DD      ?       ;
-        RSVED           DD      ?       ;system reserved 
-        TIMER1_VEC      DD      ?       ;route for timer 1
-        TIMER2_VEC      DD      TIMER2_INTR       ;Timer2 Route
+    NUMERICS        DD      ?       ;
+    RSVED           DD      ?       ;system reserved 
+    TIMER1_VEC      DD      TIMER1_INTR       ;route for timer 1
+    TIMER2_VEC      DD      TIMER2_INTR       ;Timer2 Route
            ;Reserved from 050H to 080H     
 	       ORG     080H
 ;Interrupt Vector addrerss from 080h (type 32) to 3fCH (type 255)
@@ -206,7 +207,7 @@ Set_timers      proc Far
 	mov dx, T0_CNT;
 	OUT DX, AL
 
-	MOV AX, 250; ;125us = 250 cycles
+	MOV AX, 65535; ;125us = 250 cycles
 	MOV DX, T0_CA;
 	OUT DX, AL
 
@@ -222,7 +223,7 @@ Set_timers      proc Far
 	mov dx, T1_CNT;
 	OUT DX, AL
 
-	MOV AX, 40000;
+	MOV AX, 65535;
 	MOV DX, T1_CA;
 	OUT DX, AL
 
@@ -235,7 +236,7 @@ Set_timers      proc Far
 	mov dx, T2_CNT;
 	OUT DX, AL
 
-	MOV AX, 60000;
+	MOV AX, 65535;
 	MOV DX, T2_CA;
 	OUT DX, AL
 
@@ -345,11 +346,15 @@ L_TX3:
 ; **************** End of SERIAL_INTR service routine ************************
 
 
+
+
+
+
 ; **************** Start of TIMER0_INTR service routine ******************
 TIMER0_INTR:
 		PUSH 	AX
 		
-; Action to be taken on timer1 interrupt to be written by user
+; Action to be taken on timer0 interrupt to be written by user
 		CALL	FAR PTR TIMER0_ACTION
               
 		POP	AX		;return interrupt
@@ -365,7 +370,7 @@ TIMER0_INTR:
 TIMER1_INTR:
 		PUSH 	AX
 		
-; Action to be taken on timer0 interrupt to be written by user
+; Action to be taken on timer1 interrupt to be written by user
 		CALL	FAR PTR TIMER1_ACTION
               
 		POP	AX		;return interrupt
@@ -381,7 +386,7 @@ TIMER1_INTR:
 TIMER2_INTR:
 		PUSH 	AX
 		
-; Action to be taken on timer0 interrupt to be written by user
+; Action to be taken on timer2 interrupt to be written by user
 		CALL	FAR PTR TIMER2_ACTION
               
 		POP	AX		;return interrupt
