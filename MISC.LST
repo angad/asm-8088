@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     20:31:13  11/08/;2  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE MISC
@@ -26,7 +26,7 @@ LOC  OBJ                  LINE     SOURCE
                             16     ; or distributed without prior permission from the author.
                             17     ;---------------------------------------------------------------------------
                             18     
-                            19     public  print_char, print_2hex, iodefine, set_timers
+                            19     public  print_char, print_2hex, iodefine, Set_timer0, Set_timer1, Set_timer2
                             20     extrn   serial_rec_action:far, timer0_action:far, timer1_action:far, timer2_action:fa
                                    r
                             21     
@@ -41,24 +41,24 @@ LOC  OBJ                  LINE     SOURCE
 0010 ????????               30             OVERFLOW        DD      ?       ;not defined yet
 0014 ????????               31             ARRAY_BND       DD      ?       ;Array Bounds
 0020                        32                     ORG     020H
-0020 5301----       R       33             TIMER0_VEC              DD              TIMER0_INTR ; 8 x 4 = 32
+0020 6901----       R       33             TIMER0_VEC              DD              TIMER0_INTR ; 8 x 4 = 32
                             34          
                             35     ; Interrupt control unit
 0030                        36                     ORG     030H
-0030 D800----       R       37             INTP0           DD      SERIAL_INTR
+0030 EE00----       R       37             INTP0           DD      SERIAL_INTR
 0034 ????????               38             INTP1           DD      ?       ;external, not used yet  
 0038 ????????               39             INTP2           DD      ?       ;external, not used yet
 003C ????????               40             INTP3           DD      ?       ;external, not used yet
 0040 ????????               41         NUMERICS        DD      ?       ;
 0044 ????????               42         RSVED           DD      ?       ;system reserved 
-0048 6201----       R       43         TIMER1_VEC      DD      TIMER1_INTR       ;route for timer 1
-004C 7101----       R       44         TIMER2_VEC      DD      TIMER2_INTR       ;Timer2 Route
+0048 7801----       R       43         TIMER1_VEC      DD      TIMER1_INTR       ;route for timer 1
+004C 8701----       R       44         TIMER2_VEC      DD      TIMER2_INTR       ;Timer2 Route
                             45                ;Reserved from 050H to 080H     
 0080                        46                    ORG     080H
                             47     ;Interrupt Vector addrerss from 080h (type 32) to 3fCH (type 255)
                             48     ;are avaiable for user software interrupt           
                             49     ; Software interrupts
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     20:31:13  11/08/;2  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
 0003 B88300           =1    99              MOV AX, 0083H
 0006 EE               =1   100              OUT DX, AL
                       =1   101     ; PCSBA initial, set the serial port start from 00H
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     20:31:13  11/08/;2  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
 002B EE               =1   154              OUT DX, AL
                       =1   155     
                       =1   156     
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     20:31:13  11/08/;2  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -199,395 +199,421 @@ LOC  OBJ                  LINE     SOURCE
   FF54                =1   170              T0_CB     EQU      0FF54H ;
   FF52                =1   171              T0_CA     EQU      0FF52H ;
   FF50                =1   172              T0_CNT    EQU      0FF50H   
-                      =1   173              
-                      =1   174     ; Timer Control Data
-                      =1   175     
-                      =1   176     
-                      =1   177     ;Interrupt Control Registers
-                      =1   178           
+                      =1   173     
+  1770                =1   174                      TIMER0_TIME    EQU 6000;
+  1388                =1   175                      TIMER1_TIME    EQU     5000;
+  1770                =1   176                      TIMER2_TIME    EQU 6000;
+                      =1   177              
+                      =1   178     ; Timer Control Data
                       =1   179     
-  FF3E                =1   180             INT3_CTRL       EQU 0FF3EH ;Interrupt 3 Control Register
-  FF3C                =1   181             INT2_CTRL       EQU 0FF3CH
-  FF3A                =1   182             INT1_CTRL       EQU 0FF3AH
-  FF38                =1   183             INT0_CTRL       EQU 0FF38H
-  FF32                =1   184             TIMER_CTRL      EQU 0FF32H ;Timer Interrupt Control Register
-  FF30                =1   185             ISR             EQU 0FF30H ; Interrupt Status Register
-  FF22                =1   186             EOI             EQU 0FF22H ; END OF INTERRUPT REGISTER
-                      =1   187             
-  FF28                =1   188             IMKW            EQU 0FF28H ; Interrupt Mask 
-  FF2A                =1   189             IPMK            EQU 0FF2Ah ; Interrupt Priority Mask 
-                      =1   190     
-                      =1   191     ;| - | - | - | - |MSK|PM2|PM1|PM0| For TCU INT
-                      =1   192     
-                      =1   193     ;| - |SFNM|CAS|LVL|MSK|PM2|PM1|PM0| For TCU INT0,1
+                      =1   180     
+                      =1   181     ;Interrupt Control Registers
+                      =1   182           
+                      =1   183     
+  FF3E                =1   184             INT3_CTRL       EQU 0FF3EH ;Interrupt 3 Control Register
+  FF3C                =1   185             INT2_CTRL       EQU 0FF3CH
+  FF3A                =1   186             INT1_CTRL       EQU 0FF3AH
+  FF38                =1   187             INT0_CTRL       EQU 0FF38H
+  FF32                =1   188             TIMER_CTRL      EQU 0FF32H ;Timer Interrupt Control Register
+  FF30                =1   189             ISR             EQU 0FF30H ; Interrupt Status Register
+  FF22                =1   190             EOI             EQU 0FF22H ; END OF INTERRUPT REGISTER
+                      =1   191             
+  FF28                =1   192             IMKW            EQU 0FF28H ; Interrupt Mask 
+  FF2A                =1   193             IPMK            EQU 0FF2Ah ; Interrupt Priority Mask 
                       =1   194     
-                      =1   195     ;MSK 1-enable, 0-mask int 
-                      =1   196     ;pm0-pm1 Priority
-                      =1   197     
-                      =1   198         
-                           199     
-                           200     
-----                       201     MISC_ROUTINE    SEGMENT
-                           202     ASSUME CS:MISC_ROUTINE
+                      =1   195     ;| - | - | - | - |MSK|PM2|PM1|PM0| For TCU INT
+                      =1   196     
+                      =1   197     ;| - |SFNM|CAS|LVL|MSK|PM2|PM1|PM0| For TCU INT0,1
+                      =1   198     
+                      =1   199     ;MSK 1-enable, 0-mask int 
+                      =1   200     ;pm0-pm1 Priority
+                      =1   201     
+                      =1   202         
                            203     
-                           204     ; ---This procdeure initialize the system I/O area and on-chip devices-----
-0000                       205     IODEFINE        PROC    FAR
-0000 50                    206                     PUSH    AX
-0001 52                    207                     PUSH    DX
-                           208     
-                           209     ; Initialize SCU for operation
-0002 B007                  210                     MOV     AL,SMD_DATA
-0004 E603                  211                     OUT     SMD,AL
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     20:31:13  11/08/;2  PAGE    5
+                           204     
+----                       205     MISC_ROUTINE    SEGMENT
+                           206     ASSUME CS:MISC_ROUTINE
+                           207     
+                           208     ; ---This procdeure initialize the system I/O area and on-chip devices-----
+0000                       209     IODEFINE        PROC    FAR
+0000 50                    210                     PUSH    AX
+0001 52                    211                     PUSH    DX
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                           212     ; Enable serial interrupts
-0006 B003                  213                     MOV     AL,S_INT_ENA
-0008 E601                  214                     OUT     SIER,AL
-                           215     ; =============== INITIALIZATION OF INTERRUPT CONTROL UNIT =============
-                           216     ; Initialize ICU for operation
-                           217                     
-                           218     ; Mask all interrupts except SCU
-                           219                     ;disable TX interrupt,ENABLE RX.
-000A B001                  220                     MOV     AL,1
-000C E601                  221                     OUT     SIER,AL
-                           222     ; SCU use INT0, enable INT0             
-000E BA38FF                223                     MOV     DX, INT0_CTRL
-0011 33C0                  224                     XOR     AX,AX
-0013 EE                    225                     OUT     DX,AL
-                           226     ; Mask other Int
-0014 FA                    227                     CLI
-0015 BA28FF                228                     MOV     DX,IMKW
-0018 B8EE00                229                     MOV     AX,0EEH
-001B EE                    230                     OUT     DX,AL   
-001C 5A                    231                     POP     DX
-001D 58                    232                     POP     AX
-001E CB                    233                     RET
-                           234     IODEFINE        ENDP
-                           235     
-                           236     
-                           237     
-                           238     
+                           212     
+                           213     ; Initialize SCU for operation
+0002 B007                  214                     MOV     AL,SMD_DATA
+0004 E603                  215                     OUT     SMD,AL
+                           216     ; Enable serial interrupts
+0006 B003                  217                     MOV     AL,S_INT_ENA
+0008 E601                  218                     OUT     SIER,AL
+                           219     ; =============== INITIALIZATION OF INTERRUPT CONTROL UNIT =============
+                           220     ; Initialize ICU for operation
+                           221                     
+                           222     ; Mask all interrupts except SCU
+                           223                     ;disable TX interrupt,ENABLE RX.
+000A B001                  224                     MOV     AL,1
+000C E601                  225                     OUT     SIER,AL
+                           226     ; SCU use INT0, enable INT0             
+000E BA38FF                227                     MOV     DX, INT0_CTRL
+0011 33C0                  228                     XOR     AX,AX
+0013 EE                    229                     OUT     DX,AL
+                           230     ; Mask other Int
+0014 FA                    231                     CLI
+0015 BA28FF                232                     MOV     DX,IMKW
+0018 B8EE00                233                     MOV     AX,0EEH
+001B EE                    234                     OUT     DX,AL   
+001C 5A                    235                     POP     DX
+001D 58                    236                     POP     AX
+001E CB                    237                     RET
+                           238     IODEFINE        ENDP
                            239     
-                           240     ; ----------------Start of procedure PRINT_2HEX ------------------------
-001F                       241     PRINT_2HEX      PROC    FAR
-  0000                     242             QUE_BASE        EQU     OFFSET QUEUE_TRANS
-                           243     ; The byte to be printed as 2 HEX number is put into AL.
-                           244     ; This procedure is then called.
-001F 9A6800----     R      245                     CALL    FAR PTR CHAR2HEX
-                           246     ; Result is return in AX
-0024 50                    247                     PUSH    AX
-0025 8AC4                  248                     MOV     AL,AH
-0027 9A3300----     R      249                     CALL    FAR PTR PRINT_CHAR
-002C 58                    250                     POP     AX
-002D 9A3300----     R      251                     CALL    FAR PTR PRINT_CHAR
-0032 CB                    252                     RET
-                           253     PRINT_2HEX      ENDP
-                           254     
-                           255     
-                           256     
-                           257     
-                           258     ; ---------------- Start of procedure PRINT_CHAR ------------------------
-0033                       259     PRINT_CHAR      PROC    FAR
-                           260     ; This procedure is called to put a character into queue for transmission
-                           261     ; through the serial port. 
-                           262     ; The data to be transmitted is put in AL before the procedure is called.
-                           263     ; Data is put at the tail. Queue_tail is then inc to point to next loc.
-                           264     ; Data is taken from the head. Queue_head is then inc to point to next data.
-                           265             
-0033 53                    266                     PUSH    BX                      ;Save BX        
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     20:31:13  11/08/;2  PAGE    6
+                           240     
+                           241     
+                           242     
+                           243     
+                           244     ; ----------------Start of procedure PRINT_2HEX ------------------------
+001F                       245     PRINT_2HEX      PROC    FAR
+  0000                     246             QUE_BASE        EQU     OFFSET QUEUE_TRANS
+                           247     ; The byte to be printed as 2 HEX number is put into AL.
+                           248     ; This procedure is then called.
+001F 9A6800----     R      249                     CALL    FAR PTR CHAR2HEX
+                           250     ; Result is return in AX
+0024 50                    251                     PUSH    AX
+0025 8AC4                  252                     MOV     AL,AH
+0027 9A3300----     R      253                     CALL    FAR PTR PRINT_CHAR
+002C 58                    254                     POP     AX
+002D 9A3300----     R      255                     CALL    FAR PTR PRINT_CHAR
+0032 CB                    256                     RET
+                           257     PRINT_2HEX      ENDP
+                           258     
+                           259     
+                           260     
+                           261     
+                           262     ; ---------------- Start of procedure PRINT_CHAR ------------------------
+0033                       263     PRINT_CHAR      PROC    FAR
+                           264     ; This procedure is called to put a character into queue for transmission
+                           265     ; through the serial port. 
+                           266     ; The data to be transmitted is put in AL before the procedure is called.
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
 
-0034 06                    267                     PUSH    ES
-                           268     
-0035 50                    269                     PUSH    AX
-                           270     
-0036 BB----         R      271                     MOV     BX,SEG QUEUE_TAIL       ;Init segment register.
-0039 8EC3                  272                     MOV     ES,BX                   ;ES now contains seg of INT_RAM_AREA
-                           273     
-003B E401                  274                     IN      AL,SIER                 ;disable TX interrupt.
-003D 24FD                  275                     AND     AL,11111101B
-003F E601                  276                     OUT     SIER,AL
+                           267     ; Data is put at the tail. Queue_tail is then inc to point to next loc.
+                           268     ; Data is taken from the head. Queue_head is then inc to point to next data.
+                           269             
+0033 53                    270                     PUSH    BX                      ;Save BX        
+0034 06                    271                     PUSH    ES
+                           272     
+0035 50                    273                     PUSH    AX
+                           274     
+0036 BB----         R      275                     MOV     BX,SEG QUEUE_TAIL       ;Init segment register.
+0039 8EC3                  276                     MOV     ES,BX                   ;ES now contains seg of INT_RAM_AREA
                            277     
-0041 58                    278                     POP     AX
-0042 268B1E8200            279                     MOV     BX,ES:QUEUE_TAIL                
-0047 268807                280                     MOV     ES:QUE_BASE[BX],AL      ;Put data to queue_tail.
-004A 26FF068200            281                     INC     ES:QUEUE_TAIL           ;Increment queue_tail
-004F 26813E82008000        282                     CMP     ES:QUEUE_TAIL,QUEUE_LEN ;and wrap around
-0056 7C07                  283                     JL      L_PRINT1                ;to zero if needed.
-0058 26C70682000000        284                     MOV     ES:QUEUE_TAIL,0
-005F                       285     L_PRINT1:       
-005F E401                  286                     IN      AL,SIER                 ;enable TX interrupt
-0061 0C02                  287                     OR      AL,00000010B
-0063 E601                  288                     OUT     SIER,AL
-                           289     
-0065 07                    290                     POP     ES
-0066 5B                    291                     POP     BX
-0067 CB                    292                     RET
-                           293     PRINT_CHAR      ENDP
-                           294     
-                           295     
-                           296     
-                           297     
-                           298     ;------------------Start of Procedure CHAR2HEX ----------------------------
-0068                       299     CHAR2HEX        PROC    FAR
-                           300     ; Char to be converted to HEX is put in AL before calling this procedure.
-                           301     ; HEX version is return in AX.
-0068 8AE0                  302                     MOV     AH,AL
-006A 240F                  303                     AND     AL,00001111B
-006C 3C09                  304                     CMP     AL,9
-006E 7F05                  305                     JG      GT9_1
-0070 0C30                  306                     OR      AL,00110000B
-0072 EB0590                307                     JMP     DIGIT2
-0075 2C09                  308     GT9_1:          SUB     AL,9
-0077 0C40                  309                     OR      AL,01000000B
-0079                       310     DIGIT2:
-0079 C0EC04                311                     SHR     AH,4
-007C 80FC09                312                     CMP     AH,9
-007F 7F06                  313                     JG      GT9_2
-0081 80CC30                314                     OR      AH,00110000B
-0084 EB0790                315                     JMP     DONE
-0087 80EC09                316     GT9_2:          SUB     AH,9
-008A 80CC40                317                     OR      AH,01000000B
-008D                       318     DONE:
-008D CB                    319                     RET
-                           320     CHAR2HEX        ENDP
-                           321     
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     20:31:13  11/08/;2  PAGE    7
+003B E401                  278                     IN      AL,SIER                 ;disable TX interrupt.
+003D 24FD                  279                     AND     AL,11111101B
+003F E601                  280                     OUT     SIER,AL
+                           281     
+0041 58                    282                     POP     AX
+0042 268B1E8200            283                     MOV     BX,ES:QUEUE_TAIL                
+0047 268807                284                     MOV     ES:QUE_BASE[BX],AL      ;Put data to queue_tail.
+004A 26FF068200            285                     INC     ES:QUEUE_TAIL           ;Increment queue_tail
+004F 26813E82008000        286                     CMP     ES:QUEUE_TAIL,QUEUE_LEN ;and wrap around
+0056 7C07                  287                     JL      L_PRINT1                ;to zero if needed.
+0058 26C70682000000        288                     MOV     ES:QUEUE_TAIL,0
+005F                       289     L_PRINT1:       
+005F E401                  290                     IN      AL,SIER                 ;enable TX interrupt
+0061 0C02                  291                     OR      AL,00000010B
+0063 E601                  292                     OUT     SIER,AL
+                           293     
+0065 07                    294                     POP     ES
+0066 5B                    295                     POP     BX
+0067 CB                    296                     RET
+                           297     PRINT_CHAR      ENDP
+                           298     
+                           299     
+                           300     
+                           301     
+                           302     ;------------------Start of Procedure CHAR2HEX ----------------------------
+0068                       303     CHAR2HEX        PROC    FAR
+                           304     ; Char to be converted to HEX is put in AL before calling this procedure.
+                           305     ; HEX version is return in AX.
+0068 8AE0                  306                     MOV     AH,AL
+006A 240F                  307                     AND     AL,00001111B
+006C 3C09                  308                     CMP     AL,9
+006E 7F05                  309                     JG      GT9_1
+0070 0C30                  310                     OR      AL,00110000B
+0072 EB0590                311                     JMP     DIGIT2
+0075 2C09                  312     GT9_1:          SUB     AL,9
+0077 0C40                  313                     OR      AL,01000000B
+0079                       314     DIGIT2:
+0079 C0EC04                315                     SHR     AH,4
+007C 80FC09                316                     CMP     AH,9
+007F 7F06                  317                     JG      GT9_2
+0081 80CC30                318                     OR      AH,00110000B
+0084 EB0790                319                     JMP     DONE
+0087 80EC09                320     GT9_2:          SUB     AH,9
+008A 80CC40                321                     OR      AH,01000000B
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
 
-008E                       322     Set_timers      proc Far
-008E 50                    323             push ax
-008F 52                    324             push dx
+008D                       322     DONE:
+008D CB                    323                     RET
+                           324     CHAR2HEX        ENDP
                            325     
-                           326             ;TIMERS increment at the rate of 
-                           327             ;1/4 of CLKOUT Frequency
-                           328             ;For our case, 8Mhz CLKOUT
-                           329             ;125us = 250 Cycles on the timer
-                           330             ;125us = 1000 Cycles on the 80188
-                           331     
-                           332             ;Initialize Timer0
-0090 B80000                333             mov ax, 0;
-0093 BA50FF                334             mov dx, T0_CNT;
-0096 EE                    335             OUT DX, AL
-                           336     
-0097 B8FFFF                337             MOV AX, 65535; ;125us = 250 cycles
-009A BA52FF                338             MOV DX, T0_CA;
-009D EE                    339             OUT DX, AL
-                           340     
-                           341             ;1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 1
-                           342             ;EN INH INT
-                           343     
-009E B801E0                344             MOV AX,0E001H
-00A1 BA56FF                345             MOV DX, T0_CON
-00A4 EE                    346             OUT DX, AL
-                           347             
-                           348             ;Initialize Timer1      -- Keypad
-00A5 B80000                349             mov ax, 0;
-00A8 BA58FF                350             mov dx, T1_CNT;
-00AB EE                    351             OUT DX, AL
-                           352     
-00AC B8FFFF                353             MOV AX, 65535;
-00AF BA5AFF                354             MOV DX, T1_CA;
-00B2 EE                    355             OUT DX, AL
-                           356     
-00B3 B801E0                357             MOV AX,0E001H
-00B6 BA5EFF                358             MOV DX, T1_CON
-00B9 EE                    359             OUT DX, AL
-                           360     
-                           361             ;Initialize Timer2 -- LED
-00BA B80000                362             mov ax, 0;
-00BD BA60FF                363             mov dx, T2_CNT;
-00C0 EE                    364             OUT DX, AL
-                           365     
-00C1 B8FFFF                366             MOV AX, 65535;
-00C4 BA62FF                367             MOV DX, T2_CA;
-00C7 EE                    368             OUT DX, AL
-                           369     
-00C8 B801E0                370             MOV AX,0E001H
-00CB BA66FF                371             MOV DX, T2_CON
-00CE EE                    372             OUT DX, AL
+                           326     
+008E                       327     Set_timer0      proc Far
+008E 50                    328             push ax
+008F 52                    329             push dx
+                           330             ;Initialize Timer0      
+0090 B80000                331             mov ax, 0;
+0093 BA50FF                332             mov dx, T0_CNT;init timer count register to 0
+0096 EE                    333             OUT DX, AL
+                           334     
+0097 B87017                335             MOV AX, TIMER0_TIME
+009A BA52FF                336             MOV DX, T0_CA
+009D EE                    337             OUT DX, AL
+                           338             
+009E B801E0                339             MOV AX,0E001H ;enable counting
+00A1 BA56FF                340             MOV DX, T0_CON
+00A4 EE                    341             OUT DX, AL
+                           342     
+00A5 BA32FF                343             MOV DX, TIMER_CTRL;Timer Interrupt Control Register(80188.inc)
+00A8 B001                  344             MOV AL, 01H; Serial Interrupte Enable Register (w), Divisor Latch most  Signi
+                                   ficant BYTE(80188.inc)
+00AA EE                    345             OUT DX, AL
+00AB 5A                    346             pop dx
+00AC 58                    347             pop ax
+                           348     
+00AD CB                    349     ret
+                           350     Set_timer0 endp
+                           351     
+00AE                       352     Set_timer1      proc Far
+00AE 50                    353             push ax
+00AF 52                    354             push dx
+                           355             ;Initialize Timer1
+00B0 B80000                356             mov ax, 0;
+00B3 BA58FF                357             mov dx, T1_CNT;init timer count register to 0
+00B6 EE                    358             OUT DX, AL
+                           359     
+00B7 B88813                360             MOV AX, TIMER1_TIME
+00BA BA5AFF                361             MOV DX, T1_CA
+00BD EE                    362             OUT DX, AL
+                           363             
+00BE B801E0                364             MOV AX,0E001H ;enable counting
+00C1 BA5EFF                365             MOV DX, T1_CON
+00C4 EE                    366             OUT DX, AL
+                           367     
+00C5 BA32FF                368             MOV DX, TIMER_CTRL;Timer Interrupt Control Register(80188.inc)
+00C8 B001                  369             MOV AL, 01H; Serial Interrupte Enable Register (w), Divisor Latch most  Signi
+                                   ficant BYTE(80188.inc)
+00CA EE                    370             OUT DX, AL
+00CB 5A                    371             pop dx
+00CC 58                    372             pop ax
                            373     
-                           374     ;---------------------------
-                           375     
-00CF BA32FF                376             MOV DX, TIMER_CTRL
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     20:31:13  11/08/;2  PAGE    8
+00CD CB                    374     ret
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
 
-00D2 B001                  377             MOV AL, 01H
-00D4 EE                    378             OUT DX, AL
-00D5 5A                    379             pop dx
-00D6 58                    380             pop ax
+                           375     Set_timer1 endp
+                           376     
+                           377     
+00CE                       378     Set_timer2      proc Far
+00CE 50                    379             push ax
+00CF 52                    380             push dx
                            381     
-00D7 CB                    382     ret
-                           383     Set_timers endp
-                           384     ; ************************************************************************
-                           385     ;                       INTERRUPT ROUTINES                               *
-                           386     ; ************************************************************************
-                           387     
-                           388     ; **************** Start of SERIAL_INTR service routine ******************
-                           389     
-                           390     ;*****************CAUTION*****************
-                           391     ;At the end of interrutp routines, you must write EOI (end of Int) +
-                           392     ;with the INT type (INT0-type 12) (timer-type 8)                   +    
-                           393     ;comment added by Zhu Shunyu    March,2000                         +            
-                                              
-                           394     ;Interrupt Routines Modified accordly to fit 80C188XL
-                           395     ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-00D8                       396     SERIAL_INTR:
-00D8 50                    397                     PUSH    AX                      ;save registers
-00D9 53                    398                     PUSH    BX
-00DA 52                    399                     PUSH    DX
+                           382             ;Initialize Timer2 -- LED
+00D0 B80000                383             mov ax, 0;
+00D3 BA60FF                384             mov dx, T2_CNT;
+00D6 EE                    385             OUT DX, AL
+                           386     
+00D7 B87017                387             MOV AX, TIMER2_TIME;
+00DA BA62FF                388             MOV DX, T2_CA;
+00DD EE                    389             OUT DX, AL
+                           390     
+00DE B801E0                391             MOV AX,0E001H
+00E1 BA66FF                392             MOV DX, T2_CON
+00E4 EE                    393             OUT DX, AL
+                           394     
+00E5 BA32FF                395             MOV DX, TIMER_CTRL
+00E8 B001                  396             MOV AL, 01H
+00EA EE                    397             OUT DX, AL
+00EB 5A                    398             pop dx
+00EC 58                    399             pop ax
                            400     
-                           401            
-                           402     
-                           403                                    
-00DB E402                  404                     IN      AL,IIR                  ;read in serial INT ID
-00DD 2407                  405                     AND     AL,00000111B
-00DF 3C04                  406                     CMP     AL,00000100B            ;check if rx interrupt
-00E1 740F                  407                     JE      RECEIVE_INTR
+00ED CB                    401     ret
+                           402     Set_timer2 endp
+                           403     ; ************************************************************************
+                           404     ;                       INTERRUPT ROUTINES                               *
+                           405     ; ************************************************************************
+                           406     
+                           407     ; **************** Start of SERIAL_INTR service routine ******************
                            408     
-00E3 3C02                  409                     CMP     AL,00000010B            ;check if tx interrupt
-00E5 741D                  410                     JE      TRANSMIT_INTR
-                           411     
-                           412                     
-                           413     ;RESET_INT_CTL
-00E7 BA22FF                414                     MOV DX, EOI
-00EA B80C00                415                     MOV AX, 12
-00ED EE                    416                     OUT DX, AL
-                           417     
-00EE 5A                    418                     POP     DX
-00EF 5B                    419                     POP     BX                      ;false serial interrupt
-00F0 58                    420                     POP     AX
-00F1 CF                    421                     IRET                            ;return
-                           422     
-00F2                       423     RECEIVE_INTR:   
-                           424                   
-00F2 E400                  425                     IN      AL,SRB                  
-                           426     ; Information received will be used by user routine
-                           427     ; Action to be taken will be contained in SERIAL_REC_ACTION
-00F4 9A0000----     E      428                     CALL    FAR PTR SERIAL_REC_ACTION
-                           429                     
-00F9 BA22FF                430                     MOV DX, EOI
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     20:31:13  11/08/;2  PAGE    9
+                           409     ;*****************CAUTION*****************
+                           410     ;At the end of interrutp routines, you must write EOI (end of Int) +
+                           411     ;with the INT type (INT0-type 12) (timer-type 8)                   +    
+                           412     ;comment added by Zhu Shunyu    March,2000                         +            
+                                              
+                           413     ;Interrupt Routines Modified accordly to fit 80C188XL
+                           414     ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+00EE                       415     SERIAL_INTR:
+00EE 50                    416                     PUSH    AX                      ;save registers
+00EF 53                    417                     PUSH    BX
+00F0 52                    418                     PUSH    DX
+                           419     
+                           420            
+                           421     
+                           422                                    
+00F1 E402                  423                     IN      AL,IIR                  ;read in serial INT ID
+00F3 2407                  424                     AND     AL,00000111B
+00F5 3C04                  425                     CMP     AL,00000100B            ;check if rx interrupt
+00F7 740F                  426                     JE      RECEIVE_INTR
+                           427     
+00F9 3C02                  428                     CMP     AL,00000010B            ;check if tx interrupt
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE    9
 
 
 LOC  OBJ                  LINE     SOURCE
 
-00FC B80C00                431                     MOV AX, 12
-00FF EE                    432                     OUT DX, AL
-0100 5A                    433                     POP     DX
-0101 5B                    434                     POP     BX                      ;false serial interrupt
-0102 58                    435                     POP     AX
-0103 CF                    436                     IRET
-                           437     
-0104                       438     TRANSMIT_INTR:
-                           439                    
-0104 06                    440                     PUSH    ES                      ;save ES
-0105 BB----         R      441                     MOV     BX,SEG QUEUE_TAIL       ;set ES to SERIAL_Q_SEG
-0108 8EC3                  442                     MOV     ES,BX
-010A 268B1E8200            443                     MOV     BX,ES:QUEUE_TAIL
-010F 263B1E8000            444                     CMP     BX,ES:QUEUE_HEAD        ;more data to be transmitted?
-0114 742B                  445                     JE      L_TX2
-0116 268B1E8000            446                     MOV     BX,ES:QUEUE_HEAD        ;get data from queue
-011B 268A07                447                     MOV     AL,ES:QUE_BASE[BX]
-011E E600                  448                     OUT     STB,AL                  ;tx data
-0120 26FF068000            449                     INC     ES:QUEUE_HEAD           ;point to next data
-0125 26813E80008000        450                     CMP     ES:QUEUE_HEAD,QUEUE_LEN ;wrap around if necessary
-012C 7C07                  451                     JL      L_TX1
-012E 26C70680000000        452                     MOV     ES:QUEUE_HEAD,0
-0135                       453     L_TX1:          
-0135 268B1E8200            454                     MOV     BX,ES:QUEUE_TAIL
-013A 263B1E8000            455                     CMP     BX,ES:QUEUE_HEAD        ;more data to be transmitted?
-013F 7506                  456                     JNE     L_TX3
-0141                       457     L_TX2:
-0141 E401                  458                     IN      AL,SIER                 ;no more, disable TX interrupt.
-0143 24FD                  459                     AND     AL,11111101B
-0145 E601                  460                     OUT     SIER,AL
-0147                       461     L_TX3:
-                           462                     
-                           463     ;RESET_INT_CTL
-0147 BA22FF                464                     MOV DX, EOI
-014A B80C00                465                     MOV AX, 12
-014D EE                    466                     OUT DX, AL
-014E 07                    467                     POP     ES                      ;restore original ES(transmit)
-                           468                     
-014F 5A                    469                     POP     DX 
-0150 5B                    470                     POP     BX                      ;return serial interrupt
-0151 58                    471                     POP     AX
-0152 CF                    472                     IRET
-                           473     ; **************** End of SERIAL_INTR service routine ************************
-                           474     
-                           475     
-                           476     
-                           477     
-                           478     
-                           479     
-                           480     ; **************** Start of TIMER0_INTR service routine ******************
-0153                       481     TIMER0_INTR:
-0153 50                    482                     PUSH    AX
-                           483                     
-                           484     ; Action to be taken on timer0 interrupt to be written by user
-0154 9A0000----     E      485                     CALL    FAR PTR TIMER0_ACTION
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     20:31:13  11/08/;2  PAGE   10
+00FB 741D                  429                     JE      TRANSMIT_INTR
+                           430     
+                           431                     
+                           432     ;RESET_INT_CTL
+00FD BA22FF                433                     MOV DX, EOI
+0100 B80C00                434                     MOV AX, 12
+0103 EE                    435                     OUT DX, AL
+                           436     
+0104 5A                    437                     POP     DX
+0105 5B                    438                     POP     BX                      ;false serial interrupt
+0106 58                    439                     POP     AX
+0107 CF                    440                     IRET                            ;return
+                           441     
+0108                       442     RECEIVE_INTR:   
+                           443                   
+0108 E400                  444                     IN      AL,SRB                  
+                           445     ; Information received will be used by user routine
+                           446     ; Action to be taken will be contained in SERIAL_REC_ACTION
+010A 9A0000----     E      447                     CALL    FAR PTR SERIAL_REC_ACTION
+                           448                     
+010F BA22FF                449                     MOV DX, EOI
+0112 B80C00                450                     MOV AX, 12
+0115 EE                    451                     OUT DX, AL
+0116 5A                    452                     POP     DX
+0117 5B                    453                     POP     BX                      ;false serial interrupt
+0118 58                    454                     POP     AX
+0119 CF                    455                     IRET
+                           456     
+011A                       457     TRANSMIT_INTR:
+                           458                    
+011A 06                    459                     PUSH    ES                      ;save ES
+011B BB----         R      460                     MOV     BX,SEG QUEUE_TAIL       ;set ES to SERIAL_Q_SEG
+011E 8EC3                  461                     MOV     ES,BX
+0120 268B1E8200            462                     MOV     BX,ES:QUEUE_TAIL
+0125 263B1E8000            463                     CMP     BX,ES:QUEUE_HEAD        ;more data to be transmitted?
+012A 742B                  464                     JE      L_TX2
+012C 268B1E8000            465                     MOV     BX,ES:QUEUE_HEAD        ;get data from queue
+0131 268A07                466                     MOV     AL,ES:QUE_BASE[BX]
+0134 E600                  467                     OUT     STB,AL                  ;tx data
+0136 26FF068000            468                     INC     ES:QUEUE_HEAD           ;point to next data
+013B 26813E80008000        469                     CMP     ES:QUEUE_HEAD,QUEUE_LEN ;wrap around if necessary
+0142 7C07                  470                     JL      L_TX1
+0144 26C70680000000        471                     MOV     ES:QUEUE_HEAD,0
+014B                       472     L_TX1:          
+014B 268B1E8200            473                     MOV     BX,ES:QUEUE_TAIL
+0150 263B1E8000            474                     CMP     BX,ES:QUEUE_HEAD        ;more data to be transmitted?
+0155 7506                  475                     JNE     L_TX3
+0157                       476     L_TX2:
+0157 E401                  477                     IN      AL,SIER                 ;no more, disable TX interrupt.
+0159 24FD                  478                     AND     AL,11111101B
+015B E601                  479                     OUT     SIER,AL
+015D                       480     L_TX3:
+                           481                     
+                           482     ;RESET_INT_CTL
+015D BA22FF                483                     MOV DX, EOI
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE   10
 
 
 LOC  OBJ                  LINE     SOURCE
 
-                           486                   
-0159 58                    487                     POP     AX              ;return interrupt
-                           488                     ;RESET_INT_CTL  
-015A BA22FF                489                     MOV DX, EOI
-015D B80800                490                     MOV AX, 8
-0160 EE                    491                     OUT DX, AL
-0161 CF                    492                     IRET
-                           493     ; **************** End of TIMER0_INTR service routine ************************
+0160 B80C00                484                     MOV AX, 12
+0163 EE                    485                     OUT DX, AL
+0164 07                    486                     POP     ES                      ;restore original ES(transmit)
+                           487                     
+0165 5A                    488                     POP     DX 
+0166 5B                    489                     POP     BX                      ;return serial interrupt
+0167 58                    490                     POP     AX
+0168 CF                    491                     IRET
+                           492     ; **************** End of SERIAL_INTR service routine ************************
+                           493     
                            494     
                            495     
-                           496     ; **************** Start of TIMER1_INTR service routine ******************
-0162                       497     TIMER1_INTR:
-0162 50                    498                     PUSH    AX
-                           499                     
-                           500     ; Action to be taken on timer1 interrupt to be written by user
-0163 9A0000----     E      501                     CALL    FAR PTR TIMER1_ACTION
-                           502                   
-0168 58                    503                     POP     AX              ;return interrupt
-                           504                     ;RESET_INT_CTL  
-0169 BA22FF                505                     MOV DX, EOI
-016C B80800                506                     MOV AX, 8
-016F EE                    507                     OUT DX, AL
-0170 CF                    508                     IRET
-                           509     ; **************** End of TIMER1_INTR service routine ************************
-                           510     
-                           511     
-                           512     ; **************** Start of TIMER2_INTR service routine ******************
-0171                       513     TIMER2_INTR:
-0171 50                    514                     PUSH    AX
-                           515                     
-                           516     ; Action to be taken on timer2 interrupt to be written by user
-0172 9A0000----     E      517                     CALL    FAR PTR TIMER2_ACTION
-                           518                   
-0177 58                    519                     POP     AX              ;return interrupt
-                           520                     ;RESET_INT_CTL  
-0178 BA22FF                521                     MOV DX, EOI
-017B B80800                522                     MOV AX, 8
-017E EE                    523                     OUT DX, AL
-017F CF                    524                     IRET
-                           525     ; **************** End of TIMER2_INTR service routine ************************
-                           526     
-                           527     
-                           528     
-----                       529     MISC_ROUTINE    ENDS
+                           496     
+                           497     
+                           498     
+                           499     ; **************** Start of TIMER0_INTR service routine ******************
+0169                       500     TIMER0_INTR:
+0169 50                    501                     PUSH    AX
+                           502                     
+                           503     ; Action to be taken on timer0 interrupt to be written by user
+016A 9A0000----     E      504                     CALL    FAR PTR TIMER0_ACTION
+                           505                   
+016F 58                    506                     POP     AX              ;return interrupt
+                           507                     ;RESET_INT_CTL  
+0170 BA22FF                508                     MOV DX, EOI
+0173 B80800                509                     MOV AX, 8
+0176 EE                    510                     OUT DX, AL
+0177 CF                    511                     IRET
+                           512     ; **************** End of TIMER0_INTR service routine ************************
+                           513     
+                           514     
+                           515     ; **************** Start of TIMER1_INTR service routine ******************
+0178                       516     TIMER1_INTR:
+0178 50                    517                     PUSH    AX
+                           518                     
+                           519     ; Action to be taken on timer1 interrupt to be written by user
+0179 9A0000----     E      520                     CALL    FAR PTR TIMER1_ACTION
+                           521                   
+017E 58                    522                     POP     AX              ;return interrupt
+                           523                     ;RESET_INT_CTL  
+017F BA22FF                524                     MOV DX, EOI
+0182 B80800                525                     MOV AX, 8
+0185 EE                    526                     OUT DX, AL
+0186 CF                    527                     IRET
+                           528     ; **************** End of TIMER1_INTR service routine ************************
+                           529     
                            530     
-                           531     END
+                           531     ; **************** Start of TIMER2_INTR service routine ******************
+0187                       532     TIMER2_INTR:
+0187 50                    533                     PUSH    AX
+                           534                     
+                           535     ; Action to be taken on timer2 interrupt to be written by user
+0188 9A0000----     E      536                     CALL    FAR PTR TIMER2_ACTION
+                           537                   
+018D 58                    538                     POP     AX              ;return interrupt
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     23:32:17  11/09/;2  PAGE   11
+
+
+LOC  OBJ                  LINE     SOURCE
+
+                           539                     ;RESET_INT_CTL  
+018E BA22FF                540                     MOV DX, EOI
+0191 B80800                541                     MOV AX, 8
+0194 EE                    542                     OUT DX, AL
+0195 CF                    543                     IRET
+                           544     ; **************** End of TIMER2_INTR service routine ************************
+                           545     
+                           546     
+                           547     
+----                       548     MISC_ROUTINE    ENDS
+                           549     
+                           550     END
 
 ASSEMBLY COMPLETE, NO ERRORS FOUND

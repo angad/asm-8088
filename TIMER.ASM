@@ -16,7 +16,7 @@ NAME TIMER
 
 public	serial_rec_action, timer0_action, timer1_action, timer2_action
 extrn	print_char:far, print_2hex:far, iodefine:far
-extrn   set_timers:far
+extrn   Set_timer0:far, Set_timer1:far, Set_timer2:far
 
 STACK_SEG	SEGMENT
 		DB	256 DUP(?)
@@ -42,6 +42,8 @@ DATA_SEG	SEGMENT
 	LED_SELECT  DB  0FEH
 	NUMBERS		DB	03FH, 006H, 05BH, 04FH, 066H, 06DH, 07DH, 007H, 07FH, 06FH
 	CURRENT_NUMBER DB 00H
+	BARCODE		DB  06 DUP (?)
+	BARCODE_I	DB 00H
 	REC_MESS	DB	10,13,'Period of timer0 =     '
 
 	 ;****Keypad******
@@ -101,17 +103,10 @@ START:
 	MOV AL, 82H
 	OUT DX, AL
 
-	;LED INIT
-
-	;MOV DX, IC8255_PORTA_ADDR
-	;MOV AL, 01010101B
-	;OUT DX, AL
 ; Initialize MCS
 
 ; Initialize key code
 
-; Initialize key code
-	
 	MOV DS:KEY_DECODE[0], 1
 	MOV DS:KEY_DECODE[1], 2
 	MOV DS:KEY_DECODE[2], 3
@@ -137,40 +132,24 @@ START:
 	MOV DS:KEY_DECODE[22], 0
 	;MOV DS:KEY_DECODE[23], #
 
+;Initialize barcode array
+	MOV DS:BARCODE[0], 0
+	MOV DS:BARCODE[1], 0
+	MOV DS:BARCODE[2], 0
+	MOV DS:BARCODE[3], 0
+	MOV DS:BARCODE[4], 0
+	MOV DS:BARCODE[5], 0
 
 
 ; ^^^^^^^^^^^^^^^^^  Start of User Main Routine  ^^^^^^^^^^^^^^^^^^
-    call set_timers
+    call Set_timer0
+	call Set_timer1
+	call Set_timer2
       STI
 
 NEXT:     
-
-	;MOV BH, 01111111B ;8 on 7-segment (Latch 1, PCS2)
-	;MOV BL, 10000000B ;1st 7-segment (Latch 2, PCS3)
-
-	;MOV BX, 0
-	;MOV CL, 20
-	;BCD_LOOP:
+;BEGIN MAIN LOOP
 	
-
-	 ;MOV	BX,0H
- 	 ;MOV	AL,DS:TIMER2_MESS[BX]
-	 ;CALL 	FAR PTR PRINT_CHAR
-	
-	;LED Alternate, just to check loop
-	 MOV DX, IC8255_PORTA_ADDR
-	 MOV AL, 0FFH
-	 OUT DX, AL
-
-	;MOV DX, IC8255_PORTB_ADDR	;DX = Port B Address
-	;MOV AL, 0FFH
-	;OUT DX, AL				;
-
-	;MOV DX, IC8255_PORTC_ADDR
-	;MOV AL, 00H
-	;OUT DX, AL
-
-;MAIN LOOP
 
 
 JMP NEXT
@@ -232,21 +211,43 @@ TIMER0_ACTION	PROC	FAR
 		PUSH	DS
 		PUSH	BX
 		PUSH	CX
-		MOV	AX,DATA_SEG
-		MOV	DS,AX
-	
+
+;----------------------------
+		;AD0 - AD5 PCS3 CS for 7-segment
+		;7  6  5  4  3  2  1  0
+		;x  x  A5 A4 A3 A2 A1 A0
+		MOV DX, PCS3_ADDR
+		MOV AL, LED_SELECT
+		;MOV AL, 00111110B
+		OUT DX, AL
+		ROL LED_SELECT, 01H
+
+		;AD0 - AD7 PCS2
+		;AD7 - DOT (MSB)
+		
+		MOV DX, PCS2_ADDR
+		MOV BL, CURRENT_NUMBER
+		MOV AL, NUMBERS[BX]
+		;MOV AL, 01111111B
+		OUT DX, AL
+		INC CURRENT_NUMBER
+		CMP CURRENT_NUMBER, 08H
+		JE RESET_CURRENT
+		JNE T0_NEXT1
+;---------------------------
 		DEC	DS:T0_COUNT
 		JNZ	T0_NEXT1
 		MOV	AL,DS:T0_COUNT_SET
 		MOV	DS:T0_COUNT,AL
-
-		MOV	CX,20
 		MOV	BX,0H
-T0_NEXT0:
-		MOV	AL,DS:TIMER0_MESS[BX]
-		INC	BX
-		CALL 	FAR PTR PRINT_CHAR
-		LOOP	T0_NEXT0
+		
+RESET_CURRENT:
+		MOV CURRENT_NUMBER, 00H
+		DEC	DS:T0_COUNT
+		JNZ	T0_NEXT1
+		MOV	AL,DS:T0_COUNT_SET
+		MOV	DS:T0_COUNT,AL
+		MOV	BX,0H
 
 T0_NEXT1:	
 		POP	CX
@@ -301,32 +302,26 @@ TIMER2_ACTION	PROC	FAR
 		PUSH	DS
 		PUSH	BX
 		PUSH	CX
-		MOV	AX,DATA_SEG
-		MOV	DS,AX
-	
-		DEC	DS:T2_COUNT
-		JNZ	T2_NEXT1
-		MOV	AL,DS:T2_COUNT_SET
-		MOV	DS:T2_COUNT,AL
 
-		MOV DX, IC8255_PORTA_ADDR
-		MOV AL, 01010101B
-		OUT DX, AL
+	XOR AX,AX
+	XOR BX,BX
 
+	MOV DX, IC8255_PORTC_ADDR	;DX = Port B Address
+	OUT DX, AL					;
+	MOV DX, IC8255_PORTB_ADDR	;
 
-		MOV	CX,20
-		MOV	BX,0H
-T2_NEXT0:
-		MOV	AL,DS:TIMER2_MESS[BX]
-		INC	BX
-		CALL 	FAR PTR PRINT_CHAR
-		LOOP	T2_NEXT0
+CHECK_KEY_CLOSED:	 			;Check when key is pressed. Keep looping here
+	IN AL, DX					;Move to AL, value in Port B. 
+	MOV BL, BARCODE_I
+	MOV BARCODE[BX], AL
+	MOV DX, IC8255_PORTA_ADDR
+	OUT DX, AL
 
-T2_NEXT1:	
+T2_NEXT1:
 		POP	CX
 		POP	BX
 		POP	DS
-		POP 	AX
+		POP AX
 		RET
 
 TIMER2_ACTION	ENDP

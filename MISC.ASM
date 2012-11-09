@@ -16,7 +16,7 @@ NAME MISC
 ; or distributed without prior permission from the author.
 ;---------------------------------------------------------------------------
 
-public	print_char, print_2hex, iodefine, set_timers
+public	print_char, print_2hex, iodefine, Set_timer0, Set_timer1, Set_timer2
 extrn 	serial_rec_action:far, timer0_action:far, timer1_action:far, timer2_action:far
 
 INT_VEC_SEG	SEGMENT		AT 	0H
@@ -192,59 +192,74 @@ DONE:
 		RET
 CHAR2HEX	ENDP
 
-Set_timers      proc Far
+
+Set_timer0      proc Far
 	push ax
 	push dx
-
-	;TIMERS increment at the rate of 
-	;1/4 of CLKOUT Frequency
-	;For our case, 8Mhz CLKOUT
-	;125us = 250 Cycles on the timer
-	;125us = 1000 Cycles on the 80188
-
-	;Initialize Timer0
+	;Initialize Timer0	
 	mov ax, 0;
-	mov dx, T0_CNT;
+	mov dx, T0_CNT;init timer count register to 0
 	OUT DX, AL
 
-	MOV AX, 65535; ;125us = 250 cycles
-	MOV DX, T0_CA;
-	OUT DX, AL
-
-	;1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 1
-	;EN INH INT
-
-	MOV AX,0E001H
-	MOV DX, T0_CON
+	MOV AX, TIMER0_TIME
+	MOV DX, T0_CA
 	OUT DX, AL
 	
-	;Initialize Timer1	-- Keypad
+	MOV AX,0E001H ;enable counting
+	MOV DX, T0_CON
+	OUT DX, AL
+
+	MOV DX, TIMER_CTRL;Timer Interrupt Control Register(80188.inc)
+	MOV AL, 01H; Serial Interrupte Enable Register (w), Divisor Latch most  Significant BYTE(80188.inc)
+	OUT DX, AL
+	pop dx
+	pop ax
+
+ret
+Set_timer0 endp
+
+Set_timer1      proc Far
+	push ax
+	push dx
+	;Initialize Timer1
 	mov ax, 0;
-	mov dx, T1_CNT;
+	mov dx, T1_CNT;init timer count register to 0
 	OUT DX, AL
 
-	MOV AX, 65535;
-	MOV DX, T1_CA;
+	MOV AX, TIMER1_TIME
+	MOV DX, T1_CA
 	OUT DX, AL
-
-	MOV AX,0E001H
+	
+	MOV AX,0E001H ;enable counting
 	MOV DX, T1_CON
 	OUT DX, AL
+
+	MOV DX, TIMER_CTRL;Timer Interrupt Control Register(80188.inc)
+	MOV AL, 01H; Serial Interrupte Enable Register (w), Divisor Latch most  Significant BYTE(80188.inc)
+	OUT DX, AL
+	pop dx
+	pop ax
+
+ret
+Set_timer1 endp
+
+
+Set_timer2      proc Far
+	push ax
+	push dx
 
 	;Initialize Timer2 -- LED
 	mov ax, 0;
 	mov dx, T2_CNT;
 	OUT DX, AL
 
-	MOV AX, 65535;
+	MOV AX, TIMER2_TIME;
 	MOV DX, T2_CA;
 	OUT DX, AL
 
 	MOV AX,0E001H
 	MOV DX, T2_CON
 	OUT DX, AL
-
-;---------------------------
 
 	MOV DX, TIMER_CTRL
 	MOV AL, 01H
@@ -253,7 +268,7 @@ Set_timers      proc Far
 	pop ax
 
 ret
-Set_timers endp
+Set_timer2 endp
 ; ************************************************************************
 ;			INTERRUPT ROUTINES				 *
 ; ************************************************************************
