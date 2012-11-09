@@ -29,6 +29,7 @@ DATA_SEG	SEGMENT
 	TIMER0_MESS	DB	10,13,'TIMER0 INTERRUPT    '
 	TIMER1_MESS	DB	10,13,'TIMER1 INTERRUPT    '
 	TIMER2_MESS	DB	10,13,'TIMER2 INTERRUPT    '
+	KEY_PRESSED DB  10,13,'KEY PRESSED         '
 	
 	; -- define messages for other timers
 
@@ -42,7 +43,8 @@ DATA_SEG	SEGMENT
 	LED_SELECT  DB  0FEH
 	NUMBERS		DB	03FH, 006H, 05BH, 04FH, 066H, 06DH, 07DH, 007H, 07FH, 06FH
 	CURRENT_NUMBER DB 00H
-	BARCODE		DB  06 DUP (?)
+	BARCODE		DB  00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H
+	;BARCODE		DB  03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH
 	BARCODE_I	DB 00H
 	REC_MESS	DB	10,13,'Period of timer0 =     '
 
@@ -105,52 +107,193 @@ START:
 
 ; Initialize MCS
 
-; Initialize key code
 
-	MOV DS:KEY_DECODE[0], 1
-	MOV DS:KEY_DECODE[1], 2
-	MOV DS:KEY_DECODE[2], 3
-	MOV DS:KEY_DECODE[3], 1
-	MOV DS:KEY_DECODE[4], 2
-	MOV DS:KEY_DECODE[5], 3
-	MOV DS:KEY_DECODE[6], 4
-	MOV DS:KEY_DECODE[7], 5
-	MOV DS:KEY_DECODE[8], 6
-	MOV DS:KEY_DECODE[9], 4
-	MOV DS:KEY_DECODE[10], 5
-	MOV DS:KEY_DECODE[11], 6
-	MOV DS:KEY_DECODE[12], 7
-	MOV DS:KEY_DECODE[13], 8
-	MOV DS:KEY_DECODE[14], 9
-	MOV DS:KEY_DECODE[15], 7
-	MOV DS:KEY_DECODE[16], 8
-	MOV DS:KEY_DECODE[17], 9
-	;MOV DS:KEY_DECODE[18], *
-	MOV DS:KEY_DECODE[19], 0
-	;MOV DS:KEY_DECODE[20], #
-	;MOV DS:KEY_DECODE[21], *
-	MOV DS:KEY_DECODE[22], 0
-	;MOV DS:KEY_DECODE[23], #
-
-;Initialize barcode array
-	MOV DS:BARCODE[0], 0
-	MOV DS:BARCODE[1], 0
-	MOV DS:BARCODE[2], 0
-	MOV DS:BARCODE[3], 0
-	MOV DS:BARCODE[4], 0
-	MOV DS:BARCODE[5], 0
-
+;This procedure generates 10ms delay at 5MHz
+;operating frequency, which corresponds to 
+;50,000 clock cycles.
+;DEBOUNCE PROC	NEAR
+;	PUSH	CX
+;	MOV CX, 094Ch ; 2380 dec
+;	BACK:		
+;		NOP	  ; 3 clocks
+;	LOOP BACK; 18 clocks
+;	POP CX
+;	RET
+;DEBOUNCE ENDP
 
 ; ^^^^^^^^^^^^^^^^^  Start of User Main Routine  ^^^^^^^^^^^^^^^^^^
-    call Set_timer0
-	call Set_timer1
+    ;call Set_timer0
+	;call Set_timer1
 	call Set_timer2
       STI
 
 NEXT:     
 ;BEGIN MAIN LOOP
-	
+	;slowing down the main loop
+	MOV CX, 0FFFFH ; 2380 dec
+	SLEEP:
+		NOP
+	LOOP SLEEP; 18 clocks
 
+	;MOV AL, 01H ;Printing 1 to check the start of main loop
+	;CALL FAR PTR PRINT_2HEX
+	MOV AL, 0AH ;NEW LINE
+	CALL 	FAR PTR PRINT_CHAR
+	MOV AL, 0DH ;CARRIAGE RETURN
+	CALL	FAR PTR PRINT_CHAR
+
+	MOV DX, IC8255_PORTC_ADDR	;DX = Port B Address
+	OUT DX, AL					;
+	MOV DX, IC8255_PORTB_ADDR	;
+
+CHECK_KEY_CLOSED:	 			;Check when key is pressed. Keep looping here
+	IN AL, DX					;Move to AL, value in Port B. 
+	PUSH AX
+	CALL 	FAR PTR PRINT_2HEX
+	POP AX
+	;Since PB6-PB7 pins are floating,
+	;the input can be anything from the below given values
+	CMP AL, 03FH
+	JE NEXT
+	CMP AL, 0FFH
+	JE NEXT
+	CMP AL, 0BFH
+	JE NEXT
+	CMP AL, 07FH
+	JE NEXT
+	CMP AL, 0FH
+	JE NEXT
+
+	CMP AL, 03EH
+	JZ K13
+	CMP AL, 0FEH
+	JZ K13
+
+	CMP AL, 03DH
+	JZ K12
+	CMP AL, 0FDH
+	JZ K12
+
+	CMP AL, 03BH
+	JZ K11
+	CMP AL, 0FBH
+	JZ K11
+
+	CMP AL, 037H
+	JZ K23
+	CMP AL, 0F7H
+	JZ K23
+
+	CMP AL, 0EFH
+	JZ K23
+	CMP AL, 02FH
+	JZ K23
+
+	JNZ NEXT
+
+;Column 3 of keypad
+K13:
+	;Debounce
+	MOV CX, 0FFFFH ; 2380 dec
+	BACK13:		
+		NOP	
+	LOOP BACK13; 18 clocks
+	
+	PUSH AX
+	MOV AL,03H ;print 2 to check if the key was pressed
+	CALL FAR PTR PRINT_2HEX
+	POP AX
+
+	XOR BX, BX
+	MOV BL, 03H
+	MOV AL, NUMBERS[BX]
+	MOV BL, BARCODE_I
+	MOV BARCODE[BX], AL
+	INC BARCODE_I
+	JMP NEXT
+
+;Column 2 of Keypad
+K12:
+	;Debounce
+	MOV CX, 0FFFFH ; 2380 dec
+	BACK12:		
+		NOP	
+	LOOP BACK12; 18 clocks
+	
+	PUSH AX
+	MOV AL,02H ;print 2 to check if the key was pressed
+	CALL FAR PTR PRINT_2HEX
+	POP AX
+
+	XOR BX, BX
+	MOV BL, 02H
+	MOV AL, NUMBERS[BX]
+	MOV BL, BARCODE_I
+	MOV BARCODE[BX], AL
+	INC BARCODE_I
+	JMP NEXT
+
+;Column 1 of Keypad
+K11:
+	;Debounce
+	MOV CX, 0FFFFH ; 2380 dec
+	BACK11:		
+		NOP	
+	LOOP BACK11; 18 clocks
+	
+	PUSH AX
+	MOV AL,01H ;print 2 to check if the key was pressed
+	CALL FAR PTR PRINT_2HEX
+	POP AX
+
+	XOR BX, BX
+	MOV BL, 01H
+	MOV AL, NUMBERS[BX]
+	MOV BL, BARCODE_I
+	MOV BARCODE[BX], AL
+	INC BARCODE_I
+	JMP NEXT
+
+;Column 3 of Keypad 2
+K23:
+	;Debounce
+	MOV CX, 0FFFFH ; 2380 dec
+	BACK23:		
+		NOP	
+	LOOP BACK23; 18 clocks
+	
+	PUSH AX
+	MOV AL,03H ;print 2 to check if the key was pressed
+	CALL FAR PTR PRINT_2HEX
+	POP AX
+
+	MOV CX, 08H
+	CLEAR_BARCODE:
+		MOV BX, CX
+		DEC BX
+		MOV BARCODE[BX], 00H
+	LOOP CLEAR_BARCODE
+	MOV BARCODE_I, 00H
+	JMP NEXT
+
+K22:
+	;Debounce
+	MOV CX, 0FFFFH ; 2380 dec
+	BACK22:		
+		NOP	
+	LOOP BACK22; 18 clocks
+	
+	PUSH AX
+	MOV AL,03H ;print 2 to check if the key was pressed
+	CALL FAR PTR PRINT_2HEX
+	POP AX
+
+	MOV CX, 08H
+	SET_BARCODE_1:
+		MOV BX, CX
+		MOV BARCODE[BX], 07FH
+	LOOP SET_BARCODE_1
+	MOV BARCODE_I, 00H
 
 JMP NEXT
 
@@ -212,42 +355,20 @@ TIMER0_ACTION	PROC	FAR
 		PUSH	BX
 		PUSH	CX
 
-;----------------------------
-		;AD0 - AD5 PCS3 CS for 7-segment
-		;7  6  5  4  3  2  1  0
-		;x  x  A5 A4 A3 A2 A1 A0
-		MOV DX, PCS3_ADDR
-		MOV AL, LED_SELECT
-		;MOV AL, 00111110B
-		OUT DX, AL
-		ROL LED_SELECT, 01H
+	XOR AX,AX
+	XOR BX,BX
 
-		;AD0 - AD7 PCS2
-		;AD7 - DOT (MSB)
-		
-		MOV DX, PCS2_ADDR
-		MOV BL, CURRENT_NUMBER
-		MOV AL, NUMBERS[BX]
-		;MOV AL, 01111111B
-		OUT DX, AL
-		INC CURRENT_NUMBER
-		CMP CURRENT_NUMBER, 08H
-		JE RESET_CURRENT
-		JNE T0_NEXT1
-;---------------------------
-		DEC	DS:T0_COUNT
-		JNZ	T0_NEXT1
-		MOV	AL,DS:T0_COUNT_SET
-		MOV	DS:T0_COUNT,AL
-		MOV	BX,0H
-		
-RESET_CURRENT:
-		MOV CURRENT_NUMBER, 00H
-		DEC	DS:T0_COUNT
-		JNZ	T0_NEXT1
-		MOV	AL,DS:T0_COUNT_SET
-		MOV	DS:T0_COUNT,AL
-		MOV	BX,0H
+	MOV	AX,DATA_SEG
+	MOV	DS,AX
+	
+	DEC	DS:T0_COUNT
+	JNZ	T0_NEXT1
+	MOV	AL,DS:T0_COUNT_SET
+	MOV	DS:T0_COUNT,AL
+
+	MOV	CX,20
+	MOV	BX,0H
+
 
 T0_NEXT1:	
 		POP	CX
@@ -303,19 +424,48 @@ TIMER2_ACTION	PROC	FAR
 		PUSH	BX
 		PUSH	CX
 
-	XOR AX,AX
-	XOR BX,BX
 
-	MOV DX, IC8255_PORTC_ADDR	;DX = Port B Address
-	OUT DX, AL					;
-	MOV DX, IC8255_PORTB_ADDR	;
 
-CHECK_KEY_CLOSED:	 			;Check when key is pressed. Keep looping here
-	IN AL, DX					;Move to AL, value in Port B. 
-	MOV BL, BARCODE_I
-	MOV BARCODE[BX], AL
-	MOV DX, IC8255_PORTA_ADDR
-	OUT DX, AL
+		XOR AX, AX
+		XOR BX, BX
+		
+		
+;----------------------------
+		;AD0 - AD5 PCS3 CS for 7-segment
+		;7  6  5  4  3  2  1  0
+		;x  x  A5 A4 A3 A2 A1 A0
+		MOV DX, PCS3_ADDR
+		MOV AL, LED_SELECT
+		;MOV AL, 00111110B
+		OUT DX, AL
+		ROL LED_SELECT, 01H
+
+		;AD0 - AD7 PCS2
+		;AD7 - DOT (MSB)
+		
+		MOV DX, PCS2_ADDR
+		MOV BL, CURRENT_NUMBER
+		MOV AL, BARCODE[BX]
+		;MOV AL, 01111111B
+		OUT DX, AL
+		INC CURRENT_NUMBER
+		CMP CURRENT_NUMBER, 08H
+		JE RESET_CURRENT
+		JNE T2_NEXT1
+;---------------------------
+		DEC	DS:T2_COUNT
+		JNZ	T2_NEXT1
+		MOV	AL,DS:T2_COUNT_SET
+		MOV	DS:T2_COUNT,AL
+		MOV	BX,0H
+		
+RESET_CURRENT:
+		MOV CURRENT_NUMBER, 00H
+		DEC	DS:T2_COUNT
+		JNZ	T2_NEXT1
+		MOV	AL,DS:T2_COUNT_SET
+		MOV	DS:T2_COUNT,AL
+		MOV	BX,0H
 
 T2_NEXT1:
 		POP	CX

@@ -100,7 +100,7 @@
          T0_CA     EQU      0FF52H ;
          T0_CNT    EQU      0FF50H   
 
-		 TIMER0_TIME	EQU 6000;
+		 TIMER0_TIME	EQU 5000;
 		 TIMER1_TIME	EQU	5000;
 		 TIMER2_TIME	EQU 6000;
          
