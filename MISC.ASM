@@ -16,7 +16,7 @@ NAME MISC
 ; or distributed without prior permission from the author.
 ;---------------------------------------------------------------------------
 
-public	print_char, print_2hex, iodefine, Set_timer0, Set_timer1, Set_timer2
+public	print_char, print_2hex, iodefine, Set_timer0, Set_timer1, Set_timer2, disable_timer0
 extrn 	serial_rec_action:far, timer0_action:far, timer1_action:far, timer2_action:far
 
 INT_VEC_SEG	SEGMENT		AT 	0H
@@ -272,6 +272,22 @@ Set_timer2      proc Far
 
 ret
 Set_timer2 endp
+
+disable_timer0 proc far
+	push ax
+	push dx
+	
+	MOV AX,06001H
+	MOV DX, T2_CON
+	OUT DX, AL
+
+	pop ax
+	pop dx
+ret
+disable_timer0 endp
+
+
+
 ; ************************************************************************
 ;			INTERRUPT ROUTINES				 *
 ; ************************************************************************

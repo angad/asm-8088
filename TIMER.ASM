@@ -16,7 +16,7 @@ NAME TIMER
 
 public	serial_rec_action, timer0_action, timer1_action, timer2_action
 extrn	print_char:far, print_2hex:far, iodefine:far
-extrn   Set_timer0:far, Set_timer1:far, Set_timer2:far
+extrn   Set_timer0:far, Set_timer1:far, Set_timer2:far, disable_timer0:far
 
 STACK_SEG	SEGMENT
 		DB	256 DUP(?)
@@ -24,14 +24,24 @@ STACK_SEG	SEGMENT
 STACK_SEG	ENDS
 
 
+;----------------------------------------------------------------
+;--------------------DATA SEGMENT--------------------------------
+;----------------------------------------------------------------
+
 DATA_SEG	SEGMENT
+
+	;-- String messages
 	MAIN_MESS   DB  10,13,'Main Loop           '
 	TIMER0_MESS	DB	10,13,'TIMER0 INTERRUPT    '
 	TIMER1_MESS	DB	10,13,'TIMER1 INTERRUPT    '
 	TIMER2_MESS	DB	10,13,'TIMER2 INTERRUPT    '
 	KEY_PRESSED DB  10,13,'KEY PRESSED         '
+
+	REC_MESS	DB  10,13,'KEY PRESSED         '
 	
-	; -- define messages for other timers
+	DI_INC	DW 0000H
+
+	; -- Timers counters
 
 	T0_COUNT		DB	2FH
 	T0_COUNT_SET	DB	2FH
@@ -39,6 +49,8 @@ DATA_SEG	SEGMENT
 	T1_COUNT_SET	DB	2FH
 	T2_COUNT		DB	2FH
 	T2_COUNT_SET	DB	2FH
+
+	; -- BCD and Keypad
 
 	LED_SELECT  DB  0FEH
 	NUMBERS		DB	03FH, 006H, 05BH, 04FH, 066H, 06DH, 07DH, 007H, 07FH, 06FH
@@ -49,14 +61,62 @@ DATA_SEG	SEGMENT
 	KEYPAD_CURRENT_ROW DB 00H
 	KEYPAD_ROW	DB 0FEH;
 
-	REC_MESS	DB	10,13,'Period of timer0 =     '
+	; -- Voice
 
-
-
+	DESIRED_SOUND DW 999
+	SOUND_ADDR			DD	0
+	SOUND_LEFT			DW	0
+	SOUND_BASE_ADDR		DD	0, 4713, 8481, 11945, 15315, 18317, 21614, 26120, 30013, 31809
+						DD	36107, 39110, 43768, 47646, 51847, 56124, 60775, 66907, 73225
+						DD	78520, 84565, 87674, 90326, 93756, 96907, 101370, 106075, 109155
+						DD	112854, 115703, 118631, 121867, 126347, 129602, 133161, 134469
+						DD	137351, 141625, 146695, 152503, 159103, 162214, 166331, 170638
+						DD	175769, 178219, 181435, 183391, 187071, 191560, 196299, 198222
+						DD	201345, 205826, 210477, 213770, 216003, 219454, 225267, 229879
+						DD	234904, 242475, 249711, 259862, 260667
+	SOUND_SIZE			DW	4713, 3768, 3464, 3370, 3002, 3297, 4506, 3893, 1796, 4298
+						DW	3003, 4658, 3878, 4201, 4277, 4651, 6132, 6318, 5295, 6045
+						DW	3109, 2652, 3430, 3151, 4463, 4705, 3080, 3699, 2849, 2928
+						DW	3236, 4480, 3255, 3559, 1308, 2882, 4274, 5070, 5808, 6600
+						DW	3111, 4117, 4307, 5131, 2450, 3216, 1956, 3680, 4489, 4739
+						DW	1923, 3123, 4481, 4651, 3293, 2233, 3451, 5813, 4612, 5025
+						DW	7571, 7236, 10151, 805, 800
+	SOUND_INIT			EQU 0
+	SOUND_HUNDRED		EQU	28
+	SOUND_THOUSAND		EQU	29
+	SOUND_PRODUCT		EQU	30
+	SOUND_AND			EQU	50
+	SOUND_COST			EQU	52
+	SOUND_DOLLAR		EQU	53
+	SOUND_CENT			EQU	54
+	SOUND_GREETING		EQU	55
+	SOUND_MORNING		EQU	56
+	SOUND_AFTERNOON		EQU	57
+	SOUND_EVENING		EQU	58
+	SOUND_PAY			EQU	59
+	SOUND_PURCHASE		EQU	60
+	SOUND_CHANGE		EQU	61
+	SOUND_EXIT			EQU	62
+	SOUND_BEEP			EQU	63
+	SOUND_SILENCE		EQU	64
+	SOUND_QUEUE_LEN		EQU	32
+	SOUND_QUEUE			DB	SOUND_QUEUE_LEN DUP(?)
+	SOUND_HEAD			DB	0
+	SOUND_TAIL			DB	0
+	SOUND_TEST_LEFT		DB	0
+	
+	
+		
 DATA_SEG	ENDS
 
-;------------------------------------------
-;--CHIP SELECTS
+;----------------------------------------------------------------
+;--------------------DATA SEGMENT END----------------------------
+;----------------------------------------------------------------
+
+
+;----------------------------------------------------------------
+;--------------------CHIP SELECTS--------------------------------
+;----------------------------------------------------------------
 ; 8255 register addresses
 ; PCS1
 IC8255_PORTA_ADDR EQU 80H;
@@ -67,44 +127,58 @@ IC8255_CW_ADDR    EQU 83H;
 PCS2_ADDR EQU 100H
 PCS3_ADDR EQU 180H
 PCS4_ADDR EQU 200H
-	
+
+MMCS EQU 0FFA6H
+MPCS EQU 0FFA8H
+
+;----------------------------------------------------------------
+;-------------------CHIP SELECT END------------------------------
+;----------------------------------------------------------------
 
 
-;-------------------------------------------
+;----------------------------------------------------------------
+;--------------------CODE SEGMENT--------------------------------
+;----------------------------------------------------------------
 
 CODE_SEG	SEGMENT
-
 	PUBLIC		START
-
-ASSUME	CS:CODE_SEG, SS:STACK_SEG, DS:DATA_SEG
+ASSUME		CS:CODE_SEG, SS:STACK_SEG, DS:DATA_SEG
 
 START:
 
-;initialize stack area
-		MOV	AX, STACK_SEG		
-		MOV	SS, AX
-		MOV	SP, TOS
+;-----------------------STACK AREA INIT--------------------------
+	MOV	AX, STACK_SEG		
+	MOV	SS, AX
+	MOV	SP, TOS
 
-		MOV AX, DATA_SEG
-		MOV DS, AX
+	MOV AX, DATA_SEG
+	MOV DS, AX
+;----------------------------------------------------------------
 
-; Initialize the on-chip pheripherals
-		CALL	FAR PTR	IODEFINE
-		
-	;KEYPAD INIT
-
+;--------------ON-CHIP PERIPEHRALS--------------------------------
+	CALL	FAR PTR	IODEFINE
+	
+	;IC8255 - Control Word
 	MOV DX, IC8255_CW_ADDR
 
 	;CW Register 
 	;Port C Lower Input, Port C Upper Output 
 	;Port B input, Port A output
 	;1 0 0 0 0 0 1 0
-
 	MOV AL, 82H
 	OUT DX, AL
 
 ; Initialize MCS
 
+	MOV DX, MMCS
+	MOV	AX, 8003H
+	OUT	DX, AX
+
+	MOV DX, MPCS
+	MOV AX, 4084H
+	OUT DX, AX
+
+;----------------------------------------------------------------
 
 ;This procedure generates 10ms delay at 5MHz
 ;operating frequency, which corresponds to 
@@ -120,186 +194,93 @@ START:
 ;DEBOUNCE ENDP
 
 ; ^^^^^^^^^^^^^^^^^  Start of User Main Routine  ^^^^^^^^^^^^^^^^^^
-    ;call Set_timer0
-	;call Set_timer1
-	call Set_timer2
-      STI
 
-NEXT:     
-;BEGIN MAIN LOOP
+;------------------------Setting the timers---------------------
+    call Set_timer0
+	;call Set_timer1
+	;call Set_timer2
+      STI
+;---------------------------------------------------------------
+
+	MOV CX, 20
+	SPEAK:
+		MOV AL, CL
+		CALL VOICE_ON_QUEUE
+	LOOP SPEAK
+
+
+	;MOV AL, SOUND_INIT
+	;CALL VOICE_ON_QUEUE
+
+	;MOV AL, SOUND_EVENING
+	;CALL VOICE_ON_QUEUE
+
+NEXT:
+;----------------------------------------------------------------
+;--------------------MAIN LOOP INIT------------------------------
+;----------------------------------------------------------------
+
 	;slowing down the main loop
 	MOV CX, 05FFFH ; 2380 dec
 	SLEEP:
 		NOP
 	LOOP SLEEP; 18 clocks
 
-	;MOV AL, 01H ;Printing 1 to check the start of main loop
-	;CALL FAR PTR PRINT_2HEX
 
-	;PUSH AX
-	;MOV AL, 0AH ;NEW LINE
-	;CALL 	FAR PTR PRINT_CHAR
-	;MOV AL, 0DH ;CARRIAGE RETURN
-	;CALL	FAR PTR PRINT_CHAR
-	;POP AX
+;----------------------------------------------------------------
+;--------------------START KEYPAD----------------------------------
+;----------------------------------------------------------------
 
-	XOR AX, AX
-	ROL KEYPAD_ROW, 01H
-	CMP KEYPAD_ROW, 77H
-	JE RESET_KEYPAD_ROW
-	JNZ CHECK_KEYPAD_ROW
-
-RESET_KEYPAD_ROW:
-	MOV KEYPAD_ROW, 0EH
-
-CHECK_KEYPAD_ROW:
-	MOV AL, KEYPAD_ROW
-	MOV DX, IC8255_PORTC_ADDR	;DX = Port B Address
-	OUT DX, AL					;
-	MOV DX, IC8255_PORTB_ADDR	;
-
-CHECK_KEY_CLOSED:	 			;Check when key is pressed. Keep looping here
-	IN AL, DX					;Move to AL, value in Port B. 
-	CMP AL, 00H
-	JE NEXT
-	CMP AL, 03FH
-	JE NEXT
-	CMP AL, 0FFH
-	JE NEXT
-	CMP AL, 0BFH
-	JE NEXT
-	CMP AL, 07FH
-	JE NEXT
-	CMP AL, 0FH
-	JE NEXT
-
-	;ANGAD'S SMARTASS HASHING ALGO
-	AND AL, KEYPAD_ROW
-	
-	;PUSH AX
-	;CALL FAR PTR PRINT_2HEX
-	;MOV AL, 0AH ;NEW LINE
-	;CALL 	FAR PTR PRINT_CHAR
-	;MOV AL, 0DH ;CARRIAGE RETURN
-	;CALL	FAR PTR PRINT_CHAR
-	;POP AX
-
-	;KEY 1
-	CMP AL, 0F3H
-	JE K1
-
-	;KEY 2
-	CMP AL, 0F5H
-	JE K2
-
-	;KEY 3
-	CMP AL, 0F6H
-	JE K3
-
-	;KEY 4
-	CMP AL, 0FBH
-	JE K4
-
-	;KEY 5 & 7
-	CMP AL, 0F9H
-	JE K5
-
-	;KEY 6 & *
-	CMP AL, 0FAH
-	JE K6
-
-	;KEY 8
-	CMP AL, 0FDH
-	JE K8
-
-	;KEY 9 & 0
-	CMP AL, 0FCH
-	JE K9
-	JNE NEXT
-
-K1:
-	XOR BX, BX
-	MOV BL, 01H
-	JMP ADD_BARCODE
-
-K2:
-	XOR BX, BX
-	MOV BL, 02H
-	JMP ADD_BARCODE
-
-K3:
-	XOR BX, BX
-	MOV BL, 03H
-	JMP ADD_BARCODE
-	
-K4:
-	XOR BX, BX
-	MOV BL, 04H
-	JMP ADD_BARCODE
-K5:
-	XOR BX, BX
-	MOV AL, KEYPAD_ROW
-	CMP AL, 0FDH
-	JE K7
-	MOV BL, 05H
-	JMP ADD_BARCODE
-
-K6:
-	XOR BX, BX
-	MOV AL, KEYPAD_ROW
-	CMP AL, 0FEH
-	JE K_STAR
-	MOV BL, 06H
-	JMP ADD_BARCODE
-K7:
-	XOR BX, BX
-	MOV BL, 07H
-	JMP ADD_BARCODE
-
-K8:
-	XOR BX, BX
-	MOV BL, 08H
-	JMP ADD_BARCODE
-
-K9:
-	XOR BX, BX
-	MOV AL, KEYPAD_ROW
-	CMP AL, 0FEH
-	JE K0
-	MOV BL, 09H
-	JMP ADD_BARCODE
-
-K0: 
-	XOR BX, BX
-	MOV BL, 00H
-	JMP ADD_BARCODE
-
-K_STAR:
-	XOR BX, BX
-	MOV CX, 08H
-	CLEAR_BARCODE:
-		MOV BX, CX
-		DEC BX
-		MOV BARCODE[BX], 00H
-	LOOP CLEAR_BARCODE
-	MOV BARCODE_I, 00H
-	JMP NEXT
-	
-K_HASH:
-	XOR BX, BX
-	MOV BL, 0AH
-	JMP ADD_BARCODE
-
-ADD_BARCODE:
-	MOV AL, NUMBERS[BX]
-	MOV BL, BARCODE_I
-	MOV BARCODE[BX], AL
-	INC BARCODE_I
-	JMP NEXT
-
+;----------------------------------------------------------------
+;--------------------END KEYPAD----------------------------------
+;----------------------------------------------------------------
 JMP NEXT
 
 ; ^^^^^^^^^^^^^^^ End of User main routine ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+VOICE_ON_QUEUE PROC NEAR
+	PUSH AX
+	PUSH BX
+	PUSH DX
+	PUSH DS
+	
+	MOV	DX, DATA_SEG
+	MOV	DS, DX
+	
+	PUSH AX	
+
+	MOV AL, 02H ;Printing 1 to check the start of main loop
+	CALL FAR PTR PRINT_2HEX
+	MOV AL, 0AH ;NEW LINE
+	CALL 	FAR PTR PRINT_CHAR
+	MOV AL, 0DH ;CARRIAGE RETURN
+	CALL	FAR PTR PRINT_CHAR
+
+	POP AX
+
+	MOV BH, 0
+	MOV BL, BYTE PTR SOUND_HEAD
+	MOV BYTE PTR SOUND_QUEUE[BX], AL
+	INC BL
+
+	CMP BL, SOUND_QUEUE_LEN
+	JNE VOICE_ON_QUEUE_STALL
+	
+	MOV BL, 0
+	
+VOICE_ON_QUEUE_STALL:
+		
+	MOV BYTE PTR SOUND_HEAD, BL
+ 
+	CALL	FAR PTR	Set_timer0
+	
+	POP	DS
+	POP DX
+	POP BX
+	POP AX
+	
+	RET
+VOICE_ON_QUEUE ENDP
 
 
 SERIAL_REC_ACTION	PROC	FAR
@@ -332,7 +313,8 @@ S_NEXT0:
 		MOV	CX,22			;initialize counter for message
 		MOV	BX,0
 
-S_NEXT1:	MOV	AL,DS:REC_MESS[BX]	;print message
+S_NEXT1:	
+		MOV	AL,DS:REC_MESS[BX]	;print message
 		call	FAR ptr print_char
 		INC	BX
 		LOOP	S_NEXT1
@@ -359,25 +341,146 @@ TIMER0_ACTION	PROC	FAR
 
 	XOR AX,AX
 	XOR BX,BX
+	XOR CX,CX
+	XOR DX,DX
 
 	MOV	AX,DATA_SEG
 	MOV	DS,AX
 	
+	;slowing down the timer 
+	;MOV CX, 04FFFH ; 2380 dec
+	;SLEEP_TIMER:
+	;	NOP
+	;LOOP SLEEP_TIMER; 18 clocks
+
+;----------------------------------------------------
+	; SOUND_LEFT: Number of bytes left in the queue
+	CMP WORD PTR SOUND_LEFT, 0
+	JNE timer0_ACTION_PROCEED
+	
+	; Reload with next item in the queue
+	MOV BH, 0
+	MOV BL, BYTE PTR SOUND_TAIL
+	
+	CMP BYTE PTR SOUND_HEAD, BL
+	JNE timer0_ACTION_RELOAD
+	
+	;disable timer 0, freeing up resources
+	call disable_timer0
+ 
+	JMP T0_NEXT1
+	
+timer0_ACTION_RELOAD:
+	
+	MOV BL, BYTE PTR SOUND_QUEUE[BX]
+	MOV SI, OFFSET SOUND_BASE_ADDR
+		
+	SHL BX, 2
+	MOV AX, WORD PTR [BX][SI]
+ 
+	MOV WORD PTR SOUND_ADDR[0], AX
+	
+	MOV AX, WORD PTR 2[BX][SI]	
+	MOV WORD PTR SOUND_ADDR[2], AX
+	
+	SHR BX, 1
+	MOV SI, OFFSET SOUND_SIZE
+	MOV AX, WORD PTR [BX][SI]
+	MOV WORD PTR SOUND_LEFT, AX
+	MOV AL, BYTE PTR SOUND_TAIL
+	INC AL
+	CMP AL, SOUND_QUEUE_LEN
+	JNE timer0_QUEUE_NO_OVERFLOW
+	
+	MOV AL, 0
+	
+timer0_QUEUE_NO_OVERFLOW:
+
+	MOV BYTE PTR SOUND_TAIL, AL
+	JMP T0_NEXT1
+	
+timer0_ACTION_PROCEED:
+
+	;PUSH AX
+	;MOV AL, 41H
+	;CALL FAR PTR PRINT_CHAR
+	;MOV AL, 0AH ;NEW LINE
+	;CALL 	FAR PTR PRINT_CHAR
+	;MOV AL, 0DH ;CARRIAGE RETURN
+	;CALL	FAR PTR PRINT_CHAR
+	;POP AX
+
+	DEC WORD PTR SOUND_LEFT
+	
+	MOV SI, WORD PTR SOUND_ADDR[0]
+	MOV DI, WORD PTR SOUND_ADDR[2]
+
+	; SI - Intra-segment address, DI - Segment address
+	ADD DI, 8H
+	SHL DI, 12
+
+	; Set extra segment to point to 8000H, the starting segment of the EEPROM
+	MOV DS, DI
+	 
+	; Get byte from EEPROM address space
+	MOV AL, [SI]
+	
+	; Put byte to DAC
+	MOV DX, PCS4_ADDR
+	OUT DX, AL
+	
+	;Printing contents of EEPROM
+
+	;PUSH AX
+	;CALL FAR PTR PRINT_2HEX ; Print the value
+	;MOV AL, 20H
+	;CALL FAR PTR PRINT_CHAR
+	;MOV AL, 0AH				;NEW LINE
+	;CALL 	FAR PTR PRINT_CHAR
+	;MOV AL, 0DH				;CARRIAGE RETURN
+	;CALL	FAR PTR PRINT_CHAR
+
+	;MOV AL, 42H
+	;CALL FAR PTR PRINT_CHAR
+	;MOV AL, 0AH ;NEW LINE
+	;CALL 	FAR PTR PRINT_CHAR
+	;MOV AL, 0DH ;CARRIAGE RETURN
+	;CALL	FAR PTR PRINT_CHAR
+
+	;MOV AX, SI
+	;CALL FAR PTR PRINT_2HEX
+	;MOV AL, 0AH ;NEW LINE
+	;CALL 	FAR PTR PRINT_CHAR
+	;MOV AL, 0DH ;CARRIAGE RETURN
+	;CALL	FAR PTR PRINT_CHAR
+
+	;POP AX
+
+	; Increment EEPROM address to move to the next sample
+	MOV AX, DATA_SEG
+	MOV DS, AX
+
+	INC WORD PTR SOUND_ADDR[0]
+	JNZ T0_NEXT1
+
+	; Increment memory segment
+	INC WORD PTR SOUND_ADDR[2]
+
+;---------------------------------------------
+
+
 	DEC	DS:T0_COUNT
 	JNZ	T0_NEXT1
 	MOV	AL,DS:T0_COUNT_SET
 	MOV	DS:T0_COUNT,AL
 
-	MOV	CX,20
-	MOV	BX,0H
-
-
-T0_NEXT1:	
-		POP	CX
-		POP	BX
-		POP	DS
-		POP 	AX
-		RET
+T0_NEXT1:
+;T0_NEXT1:
+	POP	CX
+	POP	BX
+	POP	DS
+	POP AX
+	RET
 TIMER0_ACTION	ENDP
 
 ;--------------------------------------------------------------
@@ -425,8 +528,6 @@ TIMER2_ACTION	PROC	FAR
 		PUSH	DS
 		PUSH	BX
 		PUSH	CX
-
-
 
 		XOR AX, AX
 		XOR BX, BX

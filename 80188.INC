@@ -4,7 +4,7 @@
          UMCR    EQU    0FFA0H ; Upper Memory Control Register
          LMCR    EQU    0FFA2H ; Lower Memory control Register         
          PCSBA   EQU    0FFA4H ; Peripheral Chip Select Base Address
-         MPCS    EQU    0FFA8H ; MMCS and PCS Alter Control Register
+		 MPCS    EQU    0FFA8H ; MMCS and PCS Alter Control Register
 
 
 ; Initial 80C188XL UCS Pin
@@ -100,7 +100,7 @@
          T0_CA     EQU      0FF52H ;
          T0_CNT    EQU      0FF50H   
 
-		 TIMER0_TIME	EQU 5000;
+		 TIMER0_TIME	EQU 250;
 		 TIMER1_TIME	EQU	5000;
 		 TIMER2_TIME	EQU 6000;
          
