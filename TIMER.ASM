@@ -60,6 +60,7 @@ DATA_SEG	SEGMENT
 	BARCODE_I	DB 00H
 	KEYPAD_CURRENT_ROW DB 00H
 	KEYPAD_ROW	DB 0FEH;
+	KEYPAD_HASH	DB	0FCH, 0F3H, 0F5H, 0F6H, 0FBH, 0F9H, 0FAH, 0F9H, 0FDH, 0FCH, 0FAH, 0EEH, 0D7H, 0E7H, 0F7H, 0DBH, 0EBH, 0F3H, 0DDH, 0EDH, 0F5H, 0DEH
 
 	; -- Voice
 
@@ -196,20 +197,30 @@ START:
 ; ^^^^^^^^^^^^^^^^^  Start of User Main Routine  ^^^^^^^^^^^^^^^^^^
 
 ;------------------------Setting the timers---------------------
-    call Set_timer0
+    ;call Set_timer0
 	;call Set_timer1
-	;call Set_timer2
+	call Set_timer2
       STI
 ;---------------------------------------------------------------
 
-	MOV CX, 20
-	SPEAK:
-		MOV AL, CL
-		CALL VOICE_ON_QUEUE
-	LOOP SPEAK
+	;MOV CX, 20
+	;SPEAK:
+	;	MOV AL, CL
+	;	CALL VOICE_ON_QUEUE
+	;LOOP SPEAK
 
+	;PUSH AX	
 
-	;MOV AL, SOUND_INIT
+	;MOV AL, 02H ;Printing 1 to check the start of main loop
+	;CALL FAR PTR PRINT_2HEX
+	;MOV AL, 0AH ;NEW LINE
+	;CALL 	FAR PTR PRINT_CHAR
+	;MOV AL, 0DH ;CARRIAGE RETURN
+	;CALL	FAR PTR PRINT_CHAR
+
+	;POP AX
+
+	;MOV AL, SOUND_GREETING
 	;CALL VOICE_ON_QUEUE
 
 	;MOV AL, SOUND_EVENING
@@ -230,6 +241,46 @@ NEXT:
 ;----------------------------------------------------------------
 ;--------------------START KEYPAD----------------------------------
 ;----------------------------------------------------------------
+	XOR AX, AX
+	ROL KEYPAD_ROW, 01H
+	CMP KEYPAD_ROW, 77H
+	JE RESET_KEYPAD_ROW
+	JNZ CHECK_KEYPAD_ROW
+
+RESET_KEYPAD_ROW:
+	MOV KEYPAD_ROW, 0EH
+
+CHECK_KEYPAD_ROW:
+	MOV AL, KEYPAD_ROW
+	MOV DX, IC8255_PORTC_ADDR	;DX = Port B Address
+	OUT DX, AL					;
+	MOV DX, IC8255_PORTB_ADDR	;
+
+CHECK_KEY_CLOSED:	 			;Check when key is pressed. Keep looping here
+	IN AL, DX					;Move to AL, value in Port B. 
+	
+	;--TODO: Get rid of these compares
+	CMP AL, 00H
+	JE NEXT
+	CMP AL, 03FH
+	JE NEXT
+	CMP AL, 0FFH
+	JE NEXT
+	CMP AL, 0BFH
+	JE NEXT
+	CMP AL, 07FH
+	JE NEXT
+	CMP AL, 0FH
+	JE NEXT
+	CMP AL, 08H
+	JE NEXT
+
+	;ANGAD'S SMARTASS HASHING ALGO
+	AND AL, KEYPAD_ROW
+	MOV AH, KEYPAD_ROW
+
+	CALL NEAR PTR KEYPAD_PROCESS
+
 
 ;----------------------------------------------------------------
 ;--------------------END KEYPAD----------------------------------
@@ -237,6 +288,94 @@ NEXT:
 JMP NEXT
 
 ; ^^^^^^^^^^^^^^^ End of User main routine ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+KEYPAD_PROCESS PROC NEAR
+	PUSH AX
+	PUSH BX
+	PUSH DX
+	PUSH DS
+	
+	MOV	DX, DATA_SEG
+	MOV	DS, DX
+	
+	
+
+	;-------Keypad 1------------
+
+	MOV CX, 10
+	FIND_KEY:
+		MOV BX, CX
+		MOV AH, KEYPAD_HASH[BX]
+		CMP AH, AL
+		JE RESOLVE_COLLISION
+	LOOP FIND_KEY
+
+	RESOLVE_COLLISION:
+		MOV AL, KEYPAD_ROW
+		
+		;PUSH AX
+		;CALL FAR PTR PRINT_2HEX
+		;MOV AL, 0AH ;NEW LINE
+		;CALL 	FAR PTR PRINT_CHAR
+		;MOV AL, 0DH ;CARRIAGE RETURN
+		;CALL	FAR PTR PRINT_CHAR
+		;POP AX
+		
+		CMP CX, 10
+		JE COLLISION_6_STAR
+		CMP CX, 7
+		JE COLLISION_7_5
+		CMP CX, 9
+		JE COLLISION_9_0
+
+	ADD_BARCODE:
+		MOV BX, CX
+		MOV AL, NUMBERS[BX]
+		MOV BL, BARCODE_I
+		MOV BARCODE[BX], AL
+		INC BARCODE_I
+		MOV AL, SOUND_GREETING
+		CALL VOICE_ON_QUEUE
+		JMP KEYPAD_EXIT
+
+	COLLISION_6_STAR:
+		CMP AL, 0FEH
+		JE CLEAR
+		MOV CX, 6
+		JMP ADD_BARCODE
+	
+	COLLISION_7_5:
+		CMP AL, 0FBH
+		JNE ADD_BARCODE
+		MOV CX, 5
+		JMP ADD_BARCODE
+
+	COLLISION_9_0:
+		CMP AL, 0FEH
+		JNE ADD_BARCODE
+		MOV CX, 0
+		JMP ADD_BARCODE
+
+
+	CLEAR:
+		XOR BX, BX
+		MOV CX, 08H
+		CLEAR_BARCODE:
+			MOV BX, CX
+			DEC BX
+			MOV BARCODE[BX], 00H
+		LOOP CLEAR_BARCODE
+		MOV BARCODE_I, 00H
+		JMP KEYPAD_EXIT
+KEYPAD_EXIT:	
+	POP	DS
+	POP DX
+	POP BX
+	POP AX
+	
+	RET
+KEYPAD_PROCESS ENDP
+
 
 VOICE_ON_QUEUE PROC NEAR
 	PUSH AX
@@ -246,17 +385,6 @@ VOICE_ON_QUEUE PROC NEAR
 	
 	MOV	DX, DATA_SEG
 	MOV	DS, DX
-	
-	PUSH AX	
-
-	MOV AL, 02H ;Printing 1 to check the start of main loop
-	CALL FAR PTR PRINT_2HEX
-	MOV AL, 0AH ;NEW LINE
-	CALL 	FAR PTR PRINT_CHAR
-	MOV AL, 0DH ;CARRIAGE RETURN
-	CALL	FAR PTR PRINT_CHAR
-
-	POP AX
 
 	MOV BH, 0
 	MOV BL, BYTE PTR SOUND_HEAD
@@ -271,7 +399,6 @@ VOICE_ON_QUEUE PROC NEAR
 VOICE_ON_QUEUE_STALL:
 		
 	MOV BYTE PTR SOUND_HEAD, BL
- 
 	CALL	FAR PTR	Set_timer0
 	
 	POP	DS

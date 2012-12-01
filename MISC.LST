@@ -1,4 +1,4 @@
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE    1
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE    1
 
 
 DOS 5.0 (038-N) 8086/87/88/186 MACRO ASSEMBLER V3.1 ASSEMBLY OF MODULE MISC
@@ -58,7 +58,7 @@ LOC  OBJ                  LINE     SOURCE
 0080                        46                    ORG     080H
                             47     ;Interrupt Vector addrerss from 080h (type 32) to 3fCH (type 255)
                             48     ;are avaiable for user software interrupt           
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE    2
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE    2
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -118,7 +118,7 @@ LOC  OBJ                  LINE     SOURCE
 0000 BAA8FF           =1    98              MOV DX, MPCS
 0003 B88300           =1    99              MOV AX, 0083H
 0006 EE               =1   100              OUT DX, AL
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE    3
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE    3
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -178,7 +178,7 @@ LOC  OBJ                  LINE     SOURCE
 0029 B000             =1   153              MOV AL, 0
 002B EE               =1   154              OUT DX, AL
                       =1   155     
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE    4
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE    4
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -201,7 +201,7 @@ LOC  OBJ                  LINE     SOURCE
   FF52                =1   171              T0_CA     EQU      0FF52H ;
   FF50                =1   172              T0_CNT    EQU      0FF50H   
                       =1   173     
-  012C                =1   174                      TIMER0_TIME    EQU 300;
+  00FA                =1   174                      TIMER0_TIME    EQU 250;
   1388                =1   175                      TIMER1_TIME    EQU     5000;
   1770                =1   176                      TIMER2_TIME    EQU 6000;
                       =1   177              
@@ -238,7 +238,7 @@ LOC  OBJ                  LINE     SOURCE
                            208     ; ---This procdeure initialize the system I/O area and on-chip devices-----
 0000                       209     IODEFINE        PROC    FAR
 0000 50                    210                     PUSH    AX
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE    5
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE    5
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -298,7 +298,7 @@ LOC  OBJ                  LINE     SOURCE
 0033                       263     PRINT_CHAR      PROC    FAR
                            264     ; This procedure is called to put a character into queue for transmission
                            265     ; through the serial port. 
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE    6
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE    6
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -358,7 +358,7 @@ LOC  OBJ                  LINE     SOURCE
 0081 80CC30                318                     OR      AH,00110000B
 0084 EB0790                319                     JMP     DONE
 0087 80EC09                320     GT9_2:          SUB     AH,9
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE    7
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE    7
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -380,7 +380,7 @@ LOC  OBJ                  LINE     SOURCE
 0093 BA50FF                335             mov dx, T0_CNT;init timer count register to 0
 0096 EE                    336             OUT DX, AL
                            337     
-0097 B82C01                338             MOV AX, TIMER0_TIME
+0097 B8FA00                338             MOV AX, TIMER0_TIME
 009A BA52FF                339             MOV DX, T0_CA
 009D EE                    340             OUT DX, AL
                            341             
@@ -418,7 +418,7 @@ LOC  OBJ                  LINE     SOURCE
 00C8 B001                  372             MOV AL, 01H; Serial Interrupte Enable Register (w), Divisor Latch most  Signi
                                    ficant BYTE(80188.inc)
 00CA EE                    373             OUT DX, AL
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE    8
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE    8
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -461,7 +461,7 @@ LOC  OBJ                  LINE     SOURCE
 00EF 52                    409             push dx
                            410             
 00F0 B80160                411             MOV AX,06001H
-00F3 BA66FF                412             MOV DX, T2_CON
+00F3 BA56FF                412             MOV DX, T0_CON
 00F6 EE                    413             OUT DX, AL
                            414     
 00F7 58                    415             pop ax
@@ -478,7 +478,7 @@ LOC  OBJ                  LINE     SOURCE
                            426     ; **************** Start of SERIAL_INTR service routine ******************
                            427     
                            428     ;*****************CAUTION*****************
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE    9
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE    9
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -538,7 +538,7 @@ LOC  OBJ                  LINE     SOURCE
 012A 8EC3                  480                     MOV     ES,BX
 012C 268B1E8200            481                     MOV     BX,ES:QUEUE_TAIL
 0131 263B1E8000            482                     CMP     BX,ES:QUEUE_HEAD        ;more data to be transmitted?
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE   10
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE   10
 
 
 LOC  OBJ                  LINE     SOURCE
@@ -598,7 +598,7 @@ LOC  OBJ                  LINE     SOURCE
 0184                       535     TIMER1_INTR:
 0184 50                    536                     PUSH    AX
                            537                     
-8086/87/88/186 MACRO ASSEMBLER    MISC                                                     22:37:11  11/30/;2  PAGE   11
+8086/87/88/186 MACRO ASSEMBLER    MISC                                                     18:52:02  12/01/;2  PAGE   11
 
 
 LOC  OBJ                  LINE     SOURCE

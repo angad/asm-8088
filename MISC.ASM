@@ -278,7 +278,7 @@ disable_timer0 proc far
 	push dx
 	
 	MOV AX,06001H
-	MOV DX, T2_CON
+	MOV DX, T0_CON
 	OUT DX, AL
 
 	pop ax
