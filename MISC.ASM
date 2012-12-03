@@ -304,10 +304,7 @@ SERIAL_INTR:
 		PUSH	AX			;save registers
 		PUSH	BX
                 PUSH    DX
-
-       
-
-               	               
+              	               
 		IN	AL,IIR			;read in serial INT ID
                 AND     AL,00000111B
 		CMP     AL,00000100B		;check if rx interrupt

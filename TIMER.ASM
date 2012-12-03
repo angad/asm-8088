@@ -1,17 +1,6 @@
 $MOD186
 $EP
 NAME TIMER
-; Main program for uPD70208 microcomputer system
-;
-; Author: 	Dr Tay Teng Tiow
-; Address:     	Department of Electrical Engineering 
-;         	National University of Singapore
-;		10, Kent Ridge Crescent
-;		Singapore 0511.	
-; Date:   	6th September 1991
-;
-; This file contains proprietory information and cannot be copied 
-; or distributed without prior permission from the author.
 ; =========================================================================
 
 public	serial_rec_action, timer0_action, timer1_action, timer2_action
@@ -37,7 +26,7 @@ DATA_SEG	SEGMENT
 	TIMER2_MESS	DB	10,13,'TIMER2 INTERRUPT    '
 	KEY_PRESSED DB  10,13,'KEY PRESSED         '
 
-	REC_MESS	DB  10,13,'KEY PRESSED         '
+	REC_MESS	DB  10,13,'INPUT RECEIVED      '
 	
 	DI_INC	DW 0000H
 
@@ -57,10 +46,23 @@ DATA_SEG	SEGMENT
 	CURRENT_NUMBER DB 00H
 	BARCODE		DB  00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H
 	;BARCODE		DB  03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH
+	BARCODE_DEC	DB	00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H
 	BARCODE_I	DB 00H
+	BARCODE_LEN		EQU 6
+	BARCODE_BUFFER	DB BARCODE_LEN DUP(?)
+	BARCODE_TAIL	EQU 0
+	;BARCODE_TAIL	EQU 0
+
+
+	;-- TODO: Add BCD Mappings
+	ENTER_BARCODE DB	07FH, 07FH, 07FH, 07FH, 07FH, 07FH
+	ENTER_QUANTITY	DB	06FH, 06FH, 06FH, 06FH, 06FH, 06FH 
+	
+	
 	KEYPAD_CURRENT_ROW DB 00H
-	KEYPAD_ROW	DB 0FEH;
-	KEYPAD_HASH	DB	0FCH, 0F3H, 0F5H, 0F6H, 0FBH, 0F9H, 0FAH, 0F9H, 0FDH, 0FCH, 0FAH, 0EEH, 0D7H, 0E7H, 0F7H, 0DBH, 0EBH, 0F3H, 0DDH, 0EDH, 0F5H, 0DEH
+	KEYPAD_ROW	DB 0FEH; 
+	KEYPAD1_HASH		DB	0FCH, 0F3H, 0F5H, 0F6H, 0FBH, 0F9H, 0FAH, 0F9H, 0FDH, 0FCH, 0FAH
+	KEYPAD2_HASH	DB	0EEH, 0D7H, 0E7H, 0F7H, 0DBH, 0EBH, 0F3H, 0DDH, 0EDH, 0F5H, 0DEH
 
 	; -- Voice
 
@@ -106,8 +108,7 @@ DATA_SEG	SEGMENT
 	SOUND_TAIL			DB	0
 	SOUND_TEST_LEFT		DB	0
 	
-	
-		
+
 DATA_SEG	ENDS
 
 ;----------------------------------------------------------------
@@ -203,29 +204,6 @@ START:
       STI
 ;---------------------------------------------------------------
 
-	;MOV CX, 20
-	;SPEAK:
-	;	MOV AL, CL
-	;	CALL VOICE_ON_QUEUE
-	;LOOP SPEAK
-
-	;PUSH AX	
-
-	;MOV AL, 02H ;Printing 1 to check the start of main loop
-	;CALL FAR PTR PRINT_2HEX
-	;MOV AL, 0AH ;NEW LINE
-	;CALL 	FAR PTR PRINT_CHAR
-	;MOV AL, 0DH ;CARRIAGE RETURN
-	;CALL	FAR PTR PRINT_CHAR
-
-	;POP AX
-
-	;MOV AL, SOUND_GREETING
-	;CALL VOICE_ON_QUEUE
-
-	;MOV AL, SOUND_EVENING
-	;CALL VOICE_ON_QUEUE
-
 NEXT:
 ;----------------------------------------------------------------
 ;--------------------MAIN LOOP INIT------------------------------
@@ -236,7 +214,6 @@ NEXT:
 	SLEEP:
 		NOP
 	LOOP SLEEP; 18 clocks
-
 
 ;----------------------------------------------------------------
 ;--------------------START KEYPAD----------------------------------
@@ -288,31 +265,30 @@ CHECK_KEY_CLOSED:	 			;Check when key is pressed. Keep looping here
 JMP NEXT
 
 ; ^^^^^^^^^^^^^^^ End of User main routine ^^^^^^^^^^^^^^^^^^^^^^^^^
-
 KEYPAD_PROCESS PROC NEAR
 	PUSH AX
 	PUSH BX
 	PUSH DX
 	PUSH DS
-	
+
 	MOV	DX, DATA_SEG
 	MOV	DS, DX
-	
-	
 
 	;-------Keypad 1------------
 
 	MOV CX, 10
 	FIND_KEY:
 		MOV BX, CX
-		MOV AH, KEYPAD_HASH[BX]
+		MOV AH, KEYPAD1_HASH[BX]
 		CMP AH, AL
 		JE RESOLVE_COLLISION
 	LOOP FIND_KEY
 
+	JNE KEYPAD2
+
 	RESOLVE_COLLISION:
 		MOV AL, KEYPAD_ROW
-		
+
 		;PUSH AX
 		;CALL FAR PTR PRINT_2HEX
 		;MOV AL, 0AH ;NEW LINE
@@ -320,7 +296,7 @@ KEYPAD_PROCESS PROC NEAR
 		;MOV AL, 0DH ;CARRIAGE RETURN
 		;CALL	FAR PTR PRINT_CHAR
 		;POP AX
-		
+
 		CMP CX, 10
 		JE COLLISION_6_STAR
 		CMP CX, 7
@@ -331,10 +307,12 @@ KEYPAD_PROCESS PROC NEAR
 	ADD_BARCODE:
 		MOV BX, CX
 		MOV AL, NUMBERS[BX]
+		MOV CX, BX
 		MOV BL, BARCODE_I
 		MOV BARCODE[BX], AL
+		MOV BARCODE_DEC[BX], CL
 		INC BARCODE_I
-		MOV AL, SOUND_GREETING
+		MOV AL, SOUND_BEEP
 		CALL VOICE_ON_QUEUE
 		JMP KEYPAD_EXIT
 
@@ -343,7 +321,7 @@ KEYPAD_PROCESS PROC NEAR
 		JE CLEAR
 		MOV CX, 6
 		JMP ADD_BARCODE
-	
+
 	COLLISION_7_5:
 		CMP AL, 0FBH
 		JNE ADD_BARCODE
@@ -356,7 +334,6 @@ KEYPAD_PROCESS PROC NEAR
 		MOV CX, 0
 		JMP ADD_BARCODE
 
-
 	CLEAR:
 		XOR BX, BX
 		MOV CX, 08H
@@ -364,19 +341,155 @@ KEYPAD_PROCESS PROC NEAR
 			MOV BX, CX
 			DEC BX
 			MOV BARCODE[BX], 00H
+			MOV BARCODE_DEC[BX], 00H
 		LOOP CLEAR_BARCODE
 		MOV BARCODE_I, 00H
 		JMP KEYPAD_EXIT
-KEYPAD_EXIT:	
+
+	KEYPAD2:
+		MOV CX, 10
+		FIND_KEY2:
+			MOV BX, CX
+			MOV AH, KEYPAD2_HASH[BX]
+			CMP AH, AL
+			JE PROCESS_COMMAND
+		LOOP FIND_KEY2
+
+		PROCESS_COMMAND:
+			CMP CX, 1
+			JE NEW_TRANSACTION
+			CMP CX, 2
+			JE NEW_ITEM
+			CMP CX, 3
+			JE GET_QUANTITY
+			CMP CX, 10
+			JE SEND_BARCODE_QUANTITY
+			JMP KEYPAD_EXIT
+		
+		; New transaction
+		; Send [OP]EN to shop pc
+		; Play greeting
+		NEW_TRANSACTION:
+			MOV AL, 'O'
+			CALL FAR PTR PRINT_CHAR
+			MOV AL, 'P'
+			CALL FAR PTR PRINT_CHAR
+
+			MOV AL, SOUND_GREETING
+			CALL NEAR PTR VOICE_ON_QUEUE
+			MOV AL, SOUND_AFTERNOON
+			CALL NEAR PTR VOICE_ON_QUEUE
+			JMP KEYPAD_EXIT
+
+		; New item
+		; Send [IT]EM to shop pc
+		; Clear BCD
+		; Wait for user to input Barcode
+		NEW_ITEM:
+			MOV AL, 'I'
+			CALL FAR PTR PRINT_CHAR
+			MOV AL, 'T'
+			CALL FAR PTR PRINT_CHAR
+;			MOV CX, 6
+;			FILL_BCD_BARCODE_PROMPT:
+;				MOV BX, 6
+;				SUB BX, 6
+;				MOV AL, ENTER_BARCODE[BX]
+;				MOV BARCODE[BX], AL
+;			LOOP FILL_BCD_BARCODE_PROMPT
+			JMP CLEAR
+			JMP KEYPAD_EXIT
+
+		;Wait for user to input Quantity
+		GET_BARCODE:
+			JMP CLEAR
+			JMP KEYPAD_EXIT
+
+		; Send Barcode and Quantity to shop pc
+		; Send [BA]rcode and [QU]andtity to shop pc
+		SEND_BARCODE_QUANTITY:
+			MOV AL, 'B'
+			CALL FAR PTR PRINT_CHAR
+			MOV AL, 'A'
+			CALL FAR PTR PRINT_CHAR
+			MOV AL, '['
+			CALL FAR PTR PRINT_CHAR
+			MOV CX, 6
+			SEND_BARCODE_LOOP:
+				MOV BX, 6
+				SUB BX, CX
+				MOV AL, BARCODE_DEC[BX]
+				ADD AL, 48
+				CALL FAR PTR PRINT_CHAR
+			LOOP SEND_BARCODE_LOOP
+			MOV AL, ']'
+			CALL FAR PTR PRINT_CHAR
+			MOV AL, 'Q'
+			CALL FAR PTR PRINT_CHAR
+			MOV AL, 'U'
+			CALL FAR PTR PRINT_CHAR
+			
+			JMP CLEAR
+			JMP KEYPAD_EXIT
+
+KEYPAD_EXIT:
 	POP	DS
 	POP DX
 	POP BX
 	POP AX
-	
+
 	RET
 KEYPAD_PROCESS ENDP
 
 
+TRANSACTION PROC NEAR
+	PUSH AX
+	PUSH BX
+	PUSH CX
+	PUSH DX
+
+	MOV AL, SOUND_GREETING
+	CALL VOICE_ON_QUEUE
+	MOV AL, SOUND_AFTERNOON
+	CALL VOICE_ON_QUEUE
+
+	POP DX
+	POP CX
+	POP BX
+	POP AX
+	RET
+TRANSACTION ENDP
+
+ITEM PROC NEAR
+	PUSH AX
+	PUSH BX
+	PUSH CX
+	PUSH DX
+
+	MOV	DX, DATA_SEG
+	MOV	DS, DX
+
+	POP DX
+	POP CX
+	POP BX
+	POP AX
+	RET
+ITEM ENDP
+
+
+QTY PROC NEAR
+	PUSH AX
+	PUSH BX
+	PUSH CX
+	PUSH DX
+
+	POP DX
+	POP CX
+	POP BX
+	POP AX
+QTY ENDP
+
+;------------------VOICE-------------------------
 VOICE_ON_QUEUE PROC NEAR
 	PUSH AX
 	PUSH BX
@@ -418,7 +531,7 @@ SERIAL_REC_ACTION	PROC	FAR
 		MOV	BX,DATA_SEG		;initialize data segment register
 		MOV	DS,BX
 
-		CMP	AL,'<'
+		CMP	AL,'a'
 		JNE	S_FAST
 
 		INC	DS:T0_COUNT_SET
@@ -430,14 +543,14 @@ SERIAL_REC_ACTION	PROC	FAR
 
 		JMP	S_NEXT0
 S_FAST:
-		CMP	AL,'>'
+		CMP	AL,01H
 		JNE	S_RET
 
 		DEC	DS:T0_COUNT_SET
 		DEC	DS:T0_COUNT_SET
 
 S_NEXT0:
-		MOV	CX,22			;initialize counter for message
+		MOV	CX,15			;initialize counter for message
 		MOV	BX,0
 
 S_NEXT1:	
@@ -445,9 +558,9 @@ S_NEXT1:
 		call	FAR ptr print_char
 		INC	BX
 		LOOP	S_NEXT1
+		MOV AL, SOUND_GREETING
+		CALL NEAR PTR VOICE_ON_QUEUE
 
-		MOV	AL,DS:T0_COUNT_SET	;print current period of timer0
-		CALL	FAR PTR PRINT_2HEX
 S_RET:
 		POP	DS
 		POP	BX
@@ -528,15 +641,6 @@ timer0_QUEUE_NO_OVERFLOW:
 	
 timer0_ACTION_PROCEED:
 
-	;PUSH AX
-	;MOV AL, 41H
-	;CALL FAR PTR PRINT_CHAR
-	;MOV AL, 0AH ;NEW LINE
-	;CALL 	FAR PTR PRINT_CHAR
-	;MOV AL, 0DH ;CARRIAGE RETURN
-	;CALL	FAR PTR PRINT_CHAR
-	;POP AX
-
 	DEC WORD PTR SOUND_LEFT
 	
 	MOV SI, WORD PTR SOUND_ADDR[0]
@@ -556,33 +660,6 @@ timer0_ACTION_PROCEED:
 	MOV DX, PCS4_ADDR
 	OUT DX, AL
 	
-	;Printing contents of EEPROM
-
-	;PUSH AX
-	;CALL FAR PTR PRINT_2HEX ; Print the value
-	;MOV AL, 20H
-	;CALL FAR PTR PRINT_CHAR
-	;MOV AL, 0AH				;NEW LINE
-	;CALL 	FAR PTR PRINT_CHAR
-	;MOV AL, 0DH				;CARRIAGE RETURN
-	;CALL	FAR PTR PRINT_CHAR
-
-	;MOV AL, 42H
-	;CALL FAR PTR PRINT_CHAR
-	;MOV AL, 0AH ;NEW LINE
-	;CALL 	FAR PTR PRINT_CHAR
-	;MOV AL, 0DH ;CARRIAGE RETURN
-	;CALL	FAR PTR PRINT_CHAR
-
-	;MOV AX, SI
-	;CALL FAR PTR PRINT_2HEX
-	;MOV AL, 0AH ;NEW LINE
-	;CALL 	FAR PTR PRINT_CHAR
-	;MOV AL, 0DH ;CARRIAGE RETURN
-	;CALL	FAR PTR PRINT_CHAR
-
-	;POP AX
-
 	; Increment EEPROM address to move to the next sample
 	MOV AX, DATA_SEG
 	MOV DS, AX
@@ -613,7 +690,6 @@ TIMER0_ACTION	ENDP
 ;--------------------------------------------------------------
 
 ;--------------------TIMER 1 ----------------------------------
-
 
 TIMER1_ACTION	PROC	FAR
 		PUSH	AX
