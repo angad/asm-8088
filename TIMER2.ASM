@@ -1,0 +1,1013 @@
+$MOD186
+$EP
+NAME TIMER
+; =========================================================================
+
+public	serial_rec_action, timer0_action, timer1_action, timer2_action
+extrn	print_char:far, print_2hex:far, iodefine:far
+extrn   Set_timer0:far, Set_timer1:far, Set_timer2:far, disable_timer0:far, disable_serial:far, enable_serial:far
+
+STACK_SEG	SEGMENT
+		DB	256 DUP(?)
+	TOS	LABEL	WORD
+STACK_SEG	ENDS
+
+
+;----------------------------------------------------------------
+;--------------------DATA SEGMENT--------------------------------
+;----------------------------------------------------------------
+
+DATA_SEG	SEGMENT
+
+	;-- String messages
+	MAIN_MESS   DB  10,13,'Main Loop           '
+	TIMER0_MESS	DB	10,13,'TIMER0 INTERRUPT    '
+	TIMER1_MESS	DB	10,13,'TIMER1 INTERRUPT    '
+	TIMER2_MESS	DB	10,13,'TIMER2 INTERRUPT    '
+	KEY_PRESSED DB  10,13,'KEY PRESSED         '
+
+	REC_MESS	DB  10,13,'INPUT RECEIVED      '
+
+	OPEN_MESS	DB	'__OPEN'
+	ITEM_MESS	DB	'__ITEM'
+	BARCODE_MESS	DB  '__BARC_'
+	QUANTITY_MESS	DB	'__QUAN_'
+
+	PRICE_I		DB	00H
+	PRICE_BCD	DB	00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H
+	PRICE_DEC	DB  00H
+
+	PRODUCT1	DB	'i100364,1'
+	PRODUCT2	DB	'i123457,1'	
+
+	DI_INC	DW 0000H
+
+	; -- Timers counters
+
+	T0_COUNT		DB	2FH
+	T0_COUNT_SET	DB	2FH
+	T1_COUNT		DB	2FH
+	T1_COUNT_SET	DB	2FH
+	T2_COUNT		DB	2FH
+	T2_COUNT_SET	DB	2FH
+
+	; -- BCD and Keypad
+
+	LED_SELECT  DB  0FEH
+	NUMBERS		DB	03FH, 006H, 05BH, 04FH, 066H, 06DH, 07DH, 007H, 07FH, 06FH
+	CURRENT_NUMBER DB 00H
+	BARCODE		DB  00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H
+	;BARCODE		DB  03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH, 03FH
+	BARCODE_DEC	DB	00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H
+	BARCODE_I	DB 00H
+	BARCODE_LEN		EQU 6
+	BARCODE_BUFFER	DB BARCODE_LEN DUP(?)
+	BARCODE_TAIL	EQU 0
+	;BARCODE_TAIL	EQU 0
+
+
+	QUANTITY		DB  00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H
+	QUANTITY_DEC	DB	00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H, 00H
+	QUANTITY_I		DB	00H
+	QUANTITY_FLAG	DB	00H
+	TEMP_FLAG		DB	00H
+	TEMP_WHOLE		DB	3 DUP (?)
+	TEMP_WHOLE_I	DB	00H
+	TEMP_DEC		DB	00H
+	TEMP_DEC_I		DB	00H
+	DECIMAL_ADDED	DB	01H
+
+	;TRANSMIT_ARR	DB	30 DUP(?)
+	;TRANSMIT_C		DB	00H
+
+	;-- TODO: Add BCD Mappings
+	ENTER_BARCODE DB	07FH, 07FH, 07FH, 07FH, 07FH, 07FH
+	ENTER_QUANTITY	DB	06FH, 06FH, 06FH, 06FH, 06FH, 06FH 
+
+
+	KEYPAD_CURRENT_ROW DB 00H
+	KEYPAD_ROW	DB 0FEH; 
+	KEYPAD1_HASH		DB	0FCH, 0F3H, 0F5H, 0F6H, 0FBH, 0F9H, 0FAH, 0F9H, 0FDH, 0FCH, 0FAH
+	KEYPAD2_HASH	DB	0EEH, 0D7H, 0E7H, 0F7H, 0DBH, 0EBH, 0F3H, 0DDH, 0EDH, 0F5H, 0DEH
+
+	; -- Voice
+
+	DESIRED_SOUND DW 999
+	SOUND_ADDR			DD	0
+	SOUND_LEFT			DW	0
+	SOUND_BASE_ADDR		DD	0, 4713, 8481, 11945, 15315, 18317, 21614, 26120, 30013, 31809
+						DD	36107, 39110, 43768, 47646, 51847, 56124, 60775, 66907, 73225
+						DD	78520, 84565, 87674, 90326, 93756, 96907, 101370, 106075, 109155
+						DD	112854, 115703, 118631, 121867, 126347, 129602, 133161, 134469
+						DD	137351, 141625, 146695, 152503, 159103, 162214, 166331, 170638
+						DD	175769, 178219, 181435, 183391, 187071, 191560, 196299, 198222
+						DD	201345, 205826, 210477, 213770, 216003, 219454, 225267, 229879
+						DD	234904, 242475, 249711, 259862, 260667
+	SOUND_SIZE			DW	4713, 3768, 3464, 3370, 3002, 3297, 4506, 3893, 1796, 4298
+						DW	3003, 4658, 3878, 4201, 4277, 4651, 6132, 6318, 5295, 6045
+						DW	3109, 2652, 3430, 3151, 4463, 4705, 3080, 3699, 2849, 2928
+						DW	3236, 4480, 3255, 3559, 1308, 2882, 4274, 5070, 5808, 6600
+						DW	3111, 4117, 4307, 5131, 2450, 3216, 1956, 3680, 4489, 4739
+						DW	1923, 3123, 4481, 4651, 3293, 2233, 3451, 5813, 4612, 5025
+						DW	7571, 7236, 10151, 805, 800
+	SOUND_INIT			EQU 0
+	SOUND_HUNDRED		EQU	28
+	SOUND_THOUSAND		EQU	29
+	SOUND_PRODUCT		EQU	30
+	SOUND_AND			EQU	50
+	SOUND_COST			EQU	52
+	SOUND_DOLLAR		EQU	53
+	SOUND_CENT			EQU	54
+	SOUND_GREETING		EQU	55
+	SOUND_MORNING		EQU	56
+	SOUND_AFTERNOON		EQU	57
+	SOUND_EVENING		EQU	58
+	SOUND_PAY			EQU	59
+	SOUND_PURCHASE		EQU	60
+	SOUND_CHANGE		EQU	61
+	SOUND_EXIT			EQU	62
+	SOUND_BEEP			EQU	63
+	SOUND_SILENCE		EQU	64
+	SOUND_QUEUE_LEN		EQU	32
+	SOUND_QUEUE			DB	SOUND_QUEUE_LEN DUP(?)
+	SOUND_HEAD			DB	0
+	SOUND_TAIL			DB	0
+	SOUND_TEST_LEFT		DB	0
+
+	TOTAL				DW 0
+
+DATA_SEG	ENDS
+
+;----------------------------------------------------------------
+;--------------------DATA SEGMENT END----------------------------
+;----------------------------------------------------------------
+
+
+;----------------------------------------------------------------
+;--------------------CHIP SELECTS--------------------------------
+;----------------------------------------------------------------
+; 8255 register addresses
+; PCS1
+IC8255_PORTA_ADDR EQU 80H;
+IC8255_PORTB_ADDR EQU 81H;
+IC8255_PORTC_ADDR EQU 82H;
+IC8255_CW_ADDR    EQU 83H;
+
+PCS2_ADDR EQU 100H
+PCS3_ADDR EQU 180H
+PCS4_ADDR EQU 200H
+
+MMCS EQU 0FFA6H
+MPCS EQU 0FFA8H
+
+;----------------------------------------------------------------
+;-------------------CHIP SELECT END------------------------------
+;----------------------------------------------------------------
+
+
+;----------------------------------------------------------------
+;--------------------CODE SEGMENT--------------------------------
+;----------------------------------------------------------------
+
+CODE_SEG	SEGMENT
+	PUBLIC		START
+ASSUME		CS:CODE_SEG, SS:STACK_SEG, DS:DATA_SEG
+
+START:
+
+;-----------------------STACK AREA INIT--------------------------
+	MOV	AX, STACK_SEG		
+	MOV	SS, AX
+	MOV	SP, TOS
+
+	MOV AX, DATA_SEG
+	MOV DS, AX
+;----------------------------------------------------------------
+
+;--------------ON-CHIP PERIPEHRALS--------------------------------
+	CALL	FAR PTR	IODEFINE
+
+	;IC8255 - Control Word
+	MOV DX, IC8255_CW_ADDR
+
+	;CW Register 
+	;Port C Lower Input, Port C Upper Output 
+	;Port B input, Port A output
+	;1 0 0 0 0 0 1 0
+	MOV AL, 82H
+	OUT DX, AL
+
+; Initialize MCS
+
+	MOV DX, MMCS
+	MOV	AX, 8003H
+	OUT	DX, AX
+
+	MOV DX, MPCS
+	MOV AX, 4084H
+	OUT DX, AX
+
+;----------------------------------------------------------------
+
+;This procedure generates 10ms delay at 5MHz
+;operating frequency, which corresponds to 
+;50,000 clock cycles.
+;DEBOUNCE PROC	NEAR
+;	PUSH	CX
+;	MOV CX, 094Ch ; 2380 dec
+;	BACK:		
+;		NOP	  ; 3 clocks
+;	LOOP BACK; 18 clocks
+;	POP CX
+;	RET
+;DEBOUNCE ENDP
+
+; ^^^^^^^^^^^^^^^^^  Start of User Main Routine  ^^^^^^^^^^^^^^^^^^
+
+;------------------------Setting the timers---------------------
+    ;call Set_timer0
+	;call Set_timer1
+	call Set_timer2
+      STI
+;---------------------------------------------------------------
+
+NEXT:
+;----------------------------------------------------------------
+;--------------------MAIN LOOP INIT------------------------------
+;----------------------------------------------------------------
+
+	;slowing down the main loop
+	MOV CX, 05FFFH ; 2380 dec
+	SLEEP:
+		NOP
+	LOOP SLEEP; 18 clocks
+
+;----------------------------------------------------------------
+;--------------------START KEYPAD----------------------------------
+;----------------------------------------------------------------
+	XOR AX, AX
+	ROL KEYPAD_ROW, 01H
+	CMP KEYPAD_ROW, 77H
+	JE RESET_KEYPAD_ROW
+	JNZ CHECK_KEYPAD_ROW
+
+RESET_KEYPAD_ROW:
+	MOV KEYPAD_ROW, 0EH
+
+CHECK_KEYPAD_ROW:
+	MOV AL, KEYPAD_ROW
+	MOV DX, IC8255_PORTC_ADDR	;DX = Port B Address
+	OUT DX, AL					;
+	MOV DX, IC8255_PORTB_ADDR	;
+
+CHECK_KEY_CLOSED:	 			;Check when key is pressed. Keep looping here
+	IN AL, DX					;Move to AL, value in Port B. 
+
+	;--TODO: Get rid of these compares
+	CMP AL, 00H
+	JE NEXT
+	CMP AL, 03FH
+	JE NEXT
+	CMP AL, 0FFH
+	JE NEXT
+	CMP AL, 0BFH
+	JE NEXT
+	CMP AL, 07FH
+	JE NEXT
+	CMP AL, 0FH
+	JE NEXT
+	CMP AL, 08H
+	JE NEXT
+
+	;ANGAD'S SMARTASS HASHING ALGO
+	AND AL, KEYPAD_ROW
+	MOV AH, KEYPAD_ROW
+
+	CALL NEAR PTR KEYPAD_PROCESS
+
+
+;----------------------------------------------------------------
+;--------------------END KEYPAD----------------------------------
+;----------------------------------------------------------------
+JMP NEXT
+
+; ^^^^^^^^^^^^^^^ End of User main routine ^^^^^^^^^^^^^^^^^^^^^^^^^
+KEYPAD_PROCESS PROC NEAR
+	PUSH AX
+	PUSH BX
+	PUSH CX
+	PUSH DX
+	PUSH DS
+
+	MOV	DX, DATA_SEG
+	MOV	DS, DX
+
+	;-------Keypad 1------------
+
+	MOV CX, 10
+	FIND_KEY:
+		MOV BX, CX
+		MOV AH, KEYPAD1_HASH[BX]
+		CMP AH, AL
+		JE RESOLVE_COLLISION
+	LOOP FIND_KEY
+
+	JNE KEYPAD2
+
+	RESOLVE_COLLISION:
+		MOV AL, KEYPAD_ROW
+
+		;PUSH AX
+		;CALL FAR PTR PRINT_2HEX
+		;MOV AL, 0AH ;NEW LINE
+		;CALL 	FAR PTR PRINT_CHAR
+		;MOV AL, 0DH ;CARRIAGE RETURN
+		;CALL	FAR PTR PRINT_CHAR
+		;POP AX
+
+		CMP CX, 10
+		JE COLLISION_6_STAR
+		CMP CX, 7
+		JE COLLISION_7_5
+		CMP CX, 9
+		JE COLLISION_9_0
+
+	ADD_BARCODE:
+		MOV BX, CX
+		MOV AL, NUMBERS[BX]
+		MOV CX, BX
+		MOV BL, BARCODE_I
+		MOV BARCODE[BX], AL
+		MOV BARCODE_DEC[BX], CL
+		INC BARCODE_I
+		MOV AL, BARCODE_DEC[BX]
+		ADD AL, 48
+		CALL FAR PTR PRINT_CHAR
+		MOV AL, SOUND_BEEP
+		CALL VOICE_ON_QUEUE
+		JMP KEYPAD_EXIT
+
+	COLLISION_6_STAR:
+		CMP AL, 0FEH
+		JE CLEAR
+		MOV CX, 6
+		JMP ADD_BARCODE
+
+	COLLISION_7_5:
+		CMP AL, 0FBH
+		JNE ADD_BARCODE
+		MOV CX, 5
+		JMP ADD_BARCODE
+
+	COLLISION_9_0:
+		CMP AL, 0FEH
+		JNE ADD_BARCODE
+		MOV CX, 0
+		JMP ADD_BARCODE
+
+	CLEAR:
+		XOR BX, BX
+		MOV CX, 08H
+		CLEAR_BARCODE:
+			MOV BX, CX
+			DEC BX
+			MOV BARCODE[BX], 00H
+			MOV BARCODE_DEC[BX], 00H
+		LOOP CLEAR_BARCODE
+		MOV BARCODE_I, 00H
+		JMP KEYPAD_EXIT
+
+	KEYPAD2:
+		MOV CX, 10
+		FIND_KEY2:
+			MOV BX, CX
+			MOV AH, KEYPAD2_HASH[BX]
+			CMP AH, AL
+			JE PROCESS_COMMAND
+		LOOP FIND_KEY2
+
+		PROCESS_COMMAND:
+			CMP CX, 1
+			JE NEW_TRANSACTION
+			CMP CX, 2
+			JE NEW_ITEM
+			CMP CX, 3
+			JE SEND_BARCODE
+			;CMP CX, 4
+			;JE DUMMY_PRODUCT
+			CMP CX, 10
+			JE SEND_QUANTITY
+			CMP CX, 5
+			JE DONE_TRANSACTION
+			CMP CX, 7
+			JE TEST_VOICE
+			JMP KEYPAD_EXIT
+
+		TEST_VOICE:
+			MOV AL, SOUND_BEEP
+			CALL NEAR PTR VOICE_ON_QUEUE
+			
+			MOV AX, 919
+			CALL NEAR PTR NUMBER_ON_QUEUE
+			JMP KEYPAD_EXIT
+
+;		DUMMY_PRODUCT
+;			XOR BX, BX
+;			XOR CX, CX
+;			MOV CX,9
+;			PRINT_DUMMY_PRODUCT:
+;				MOV BX, 9
+;				SUB BX, CX
+;				MOV AL, PRODUCT1[BX]
+;				CALL FAR PTR PRINT_CHAR
+;			LOOP PRINT_DUMMY_PRODUCT
+;			MOV AL, 0AH
+;			CALL FAR PTR PRINT_CHAR
+;			JMP CLEAR
+;
+
+		; New transaction
+		; Send [OP]EN to shop pc
+		; Play greeting
+		NEW_TRANSACTION:
+			MOV AL, '_'
+			CALL FAR PTR PRINT_CHAR
+			;MOV AL, ':'
+			;CALL FAR PTR PRINT_CHAR
+			MOV AL, SOUND_GREETING
+			CALL NEAR PTR VOICE_ON_QUEUE
+			MOV AL, SOUND_AFTERNOON
+			CALL NEAR PTR VOICE_ON_QUEUE
+			JMP KEYPAD_EXIT
+
+		; New item
+		; Send [IT]EM to shop pc
+		; Clear BCD
+		; Wait for user to input Barcode
+		NEW_ITEM:
+			MOV AL, SOUND_BEEP
+			CALL NEAR PTR VOICE_ON_QUEUE
+			JMP CLEAR
+			JMP KEYPAD_EXIT
+
+		SEND_BARCODE:
+			MOV AL, SOUND_BEEP
+			CALL NEAR PTR VOICE_ON_QUEUE
+			MOV AL, ','
+			CALL FAR PTR PRINT_CHAR
+			JMP CLEAR
+			JMP KEYPAD_EXIT
+
+		SEND_QUANTITY:
+			MOV AL, SOUND_BEEP
+			CALL NEAR PTR VOICE_ON_QUEUE
+			MOV AL, 'n'
+			CALL FAR PTR PRINT_CHAR
+			JMP CLEAR
+			JMP KEYPAD_EXIT
+
+		DONE_TRANSACTION:
+			MOV AL, SOUND_BEEP
+			CALL NEAR PTR VOICE_ON_QUEUE
+			MOV AL, 't'
+			CALL FAR PTR PRINT_CHAR
+
+
+KEYPAD_EXIT:
+	POP	DS
+	POP DX
+	POP CX
+	POP BX
+	POP AX
+
+	RET
+KEYPAD_PROCESS ENDP
+
+; SAY_PRICE PROC NEAR
+	; PUSH AX
+	; ;MOV AX, TOTAL
+	; MOV AL, SOUND_MORNING
+	; CALL NEAR PTR VOICE_ON_QUEUE
+
+	; MOV AX, 348		;1 hundred fifty 2
+	; CALL NEAR PTR PRICE_ON_QUEUE
+
+	; POP AX
+	; RET
+; SAY_PRICE ENDP
+
+; PRICE_ON_QUEUE PROC NEAR
+	; PUSHA
+
+	; ; Divide out dollars and cents, dollars in AX, cents in DX
+	; ; MOV DX, 0
+	; ; MOV CX, 100
+	; ; DIV CX
+
+	; ;Please pay
+	; MOV AL, SOUND_PAY
+	; CALL NEAR PTR VOICE_ON_QUEUE
+
+	; ; Push dollars
+	; CALL NEAR PTR GET_WHOLE
+	; CALL NEAR PTR NUMBER_ON_QUEUE
+
+	; ; "Dollars"
+	; MOV AL, SOUND_DOLLAR
+	; CALL NEAR PTR VOICE_ON_QUEUE
+
+	; ; "And"
+	; MOV AL, SOUND_AND
+	; CALL NEAR PTR VOICE_ON_QUEUE
+
+	; ; Push cents
+	; MOV AX, 10
+	; MOV AX, DX
+	; CALL NEAR PTR NUMBER_ON_QUEUE
+
+	; ; "Cents"
+	; MOV AL, SOUND_CENT
+	; CALL NEAR PTR VOICE_ON_QUEUE
+
+	; POPA
+	; RET
+; PRICE_ON_QUEUE ENDP
+
+; GET_WHOLE PROC NEAR
+	; MOV CX, TEMP_WHOLE_I
+	; MOV TOTAL, 0
+	; MOV BX, CX
+	; LOOPING:
+		; SUB BX, CX
+		; MOV AX, TOTAL
+		; MUL AX, 10
+		; ADD AX, TEMP_WHOLE[BX]
+	; LOOP LOOPING
+	; MOV AX, TOTAL
+	; RET
+; GET_WHOLE ENDP
+
+
+; Pushes number onto queue, do not care about buffer overflow
+; Always do speech in main program, since interrupts might change SOUND_HEAD arbitrary
+; Input: AX contains the value
+; 0 to 999 can be represented
+NUMBER_ON_QUEUE PROC NEAR
+	PUSHA
+	
+	; Check whether it is less than 100
+	MOV DX, AX
+	CMP DX, 1000
+	JS NUMBER_ON_QUEUE_SKIP_THOUSAND
+	
+	; Converting hundred place
+	MOV AX, DX
+	MOV DX, 0
+	MOV CX, 1000
+	DIV CX
+	
+	; AX consists of the hundred place digit
+	CALL NEAR PTR VOICE_ON_QUEUE
+	
+	; "Hundred"
+	MOV AL, SOUND_THOUSAND
+	CALL NEAR PTR VOICE_ON_QUEUE
+
+	MOV BL, AH
+	XOR AX, AX
+	MOV AL, BL
+	
+NUMBER_ON_QUEUE_SKIP_THOUSAND:
+	; Check whether it is less than 100
+	MOV DX, AX
+	CMP DX, 100
+	JS NUMBER_ON_QUEUE_SKIP_HUNDERD
+	
+	; Converting hundred place
+	MOV AX, DX
+	MOV DX, 0
+	MOV CX, 100
+	DIV CX
+	
+	; AX consists of the hundred place digit
+	CALL NEAR PTR VOICE_ON_QUEUE
+	
+	; "Hundred"
+	MOV AL, SOUND_HUNDRED
+	CALL NEAR PTR VOICE_ON_QUEUE
+
+NUMBER_ON_QUEUE_SKIP_HUNDERD:
+ 
+	; Check whether remainder is 20 or less
+	CMP DX, 21
+	JNS NUMBER_ON_QUEUE_GREATER_TWENTY
+	
+	; Twenty or less
+	MOV AL, DL
+	CALL NEAR PTR VOICE_ON_QUEUE
+	
+	JMP NUMBER_ON_QUEUE_EXIT
+	
+NUMBER_ON_QUEUE_GREATER_TWENTY:
+
+	; Converting tens place
+	MOV AX, DX
+	MOV DX, 0
+	MOV CX, 10
+	DIV CX
+	
+	; AX consists of the tens place
+	ADD AX, 18
+	CALL NEAR PTR VOICE_ON_QUEUE
+	
+	; DX consists of the ones place
+	CMP DX, 0
+	JE NUMBER_ON_QUEUE_EXIT
+	
+	MOV AL, DL
+	CALL NEAR PTR VOICE_ON_QUEUE
+
+NUMBER_ON_QUEUE_EXIT:
+
+	POPA
+	RET
+NUMBER_ON_QUEUE ENDP
+;------------------------------------------------
+;------------------------------------------------
+
+
+;------------------VOICE-------------------------
+VOICE_ON_QUEUE PROC NEAR
+	PUSH AX
+	PUSH BX
+	PUSH DX
+	PUSH DS
+
+	MOV	DX, DATA_SEG
+	MOV	DS, DX
+
+	MOV BH, 0
+	MOV BL, BYTE PTR SOUND_HEAD
+	MOV BYTE PTR SOUND_QUEUE[BX], AL
+	INC BL
+
+	CMP BL, SOUND_QUEUE_LEN
+	JNE VOICE_ON_QUEUE_STALL
+
+	MOV BL, 0
+
+VOICE_ON_QUEUE_STALL:
+
+	MOV BYTE PTR SOUND_HEAD, BL
+	CALL	FAR PTR	Set_timer0
+
+	POP	DS
+	POP DX
+	POP BX
+	POP AX
+
+	RET
+VOICE_ON_QUEUE ENDP
+
+
+SERIAL_REC_ACTION	PROC	FAR
+		PUSH	CX
+		PUSH 	BX
+		PUSH	DS
+
+		MOV	BX,DATA_SEG		;initialize data segment register
+		MOV	DS,BX
+
+		CMP AL, '.'
+		JE ADD_DECIMAL
+
+		;CMP AL, '$'
+		;JE VOICE_PRICE
+
+		CMP	AL, '0'
+		JL S_RET
+		JG GET_NUM
+	REST_SER_REC:
+		INC	DS:T0_COUNT_SET
+		INC	DS:T0_COUNT_SET
+
+ GET_NUM:
+	 CMP DECIMAL_ADDED, 01H
+	 JE ADD_DEC
+	 JNE	ADD_WHOLE
+	
+ ADD_DEC: 
+		MOV AL, SOUND_MORNING
+		 CALL NEAR PTR VOICE_ON_QUEUE
+		 XOR BX, BX
+		 MOV BL, TEMP_DEC_I
+		 MOV TEMP_DEC[BX], AL
+		 INC BL
+		 MOV TEMP_DEC_I, BL
+		 JMP REST_SER_REC
+		
+ ADD_WHOLE:
+		 MOV AL, SOUND_GOOD
+		 CALL NEAR PTR VOICE_ON_QUEUE
+		 XOR BX, BX
+		 MOV BL, TEMP_WHOLE_I
+		 MOV TEMP_WHOLE[BX], AL
+		 INC BL
+		 MOV TEMP_WHOLE_I, BL
+		 JMP REST_SER_REC
+
+DISP_PRICE:
+	XOR BX, BX
+	MOV BL, AL
+	SUB BL, 48
+	MOV AL, NUMBERS[BX]
+	MOV CX, BX
+	MOV BL, BARCODE_I
+	MOV BARCODE[BX], AL
+	MOV BARCODE_DEC[BX], CL
+	INC BARCODE_I
+
+	;Converting array to actual number
+
+	XOR AX, AX
+	XOR CX, CX
+	MOV AX, TOTAL
+	MOV CX, 10
+	MUL CX
+	MOV CL, BARCODE_DEC[BX]
+	XOR CH, CH
+	ADD AX, CX
+	MOV TOTAL, AX
+	
+	
+;	MOV BL, AH
+;	XOR AH, AH
+;	CALL FAR PTR PRINT_2HEX
+;	MOV AL, BL
+;	CALL FAR PTR PRINT_2HEX
+;	MOV AL, 0AH
+;	CALL FAR PTR PRINT_CHAR
+
+	JMP S_RET
+
+ADD_DECIMAL:
+	MOV DECIMAL_ADDED, 01H
+	MOV BL, BARCODE_I
+	DEC BL
+	MOV AL, BARCODE[BX]
+	OR AL, 80H
+	MOV BARCODE[BX], AL
+	
+	JMP S_RET
+
+;VOICE_PRICE:
+
+;	XOR AX, AX
+;	MOV AX, TOTAL
+;	CALL NEAR PTR SAY_PRICE
+;	JMP S_RET
+
+S_FAST:
+		CMP	AL,01H
+		JNE	S_RET
+
+		DEC	DS:T0_COUNT_SET
+		DEC	DS:T0_COUNT_SET
+
+S_NEXT0:
+		MOV	CX,15			;initialize counter for message
+		MOV	BX,0
+
+S_NEXT1:	
+		MOV	AL,DS:REC_MESS[BX]	;print message
+		call	FAR ptr print_char
+		INC	BX
+		LOOP	S_NEXT1
+		MOV AL, SOUND_GREETING
+		CALL NEAR PTR VOICE_ON_QUEUE
+
+		
+S_RET:
+		POP	DS
+		POP	BX
+		POP	CX
+		RET
+SERIAL_REC_ACTION	ENDP
+
+;--------------------------------------------------------------
+
+;--------------------TIMER 0 ----------------------------------
+
+TIMER0_ACTION	PROC	FAR
+		PUSH	AX
+		PUSH	DS
+		PUSH	BX
+		PUSH	CX
+
+	XOR AX,AX
+	XOR BX,BX
+	XOR CX,CX
+	XOR DX,DX
+
+	MOV	AX,DATA_SEG
+	MOV	DS,AX
+
+	;slowing down the timer 
+	;MOV CX, 04FFFH ; 2380 dec
+	;SLEEP_TIMER:
+	;	NOP
+	;LOOP SLEEP_TIMER; 18 clocks
+
+;----------------------------------------------------
+	; SOUND_LEFT: Number of bytes left in the queue
+	CMP WORD PTR SOUND_LEFT, 0
+	JNE timer0_ACTION_PROCEED
+
+	; Reload with next item in the queue
+	MOV BH, 0
+	MOV BL, BYTE PTR SOUND_TAIL
+
+	CMP BYTE PTR SOUND_HEAD, BL
+	JNE timer0_ACTION_RELOAD
+
+	;disable timer 0, freeing up resources
+	call disable_timer0
+ 
+	JMP T0_NEXT1
+
+timer0_ACTION_RELOAD:
+
+	MOV BL, BYTE PTR SOUND_QUEUE[BX]
+	MOV SI, OFFSET SOUND_BASE_ADDR
+
+	SHL BX, 2
+	MOV AX, WORD PTR [BX][SI]
+ 
+	MOV WORD PTR SOUND_ADDR[0], AX
+
+	MOV AX, WORD PTR 2[BX][SI]	
+	MOV WORD PTR SOUND_ADDR[2], AX
+
+	SHR BX, 1
+	MOV SI, OFFSET SOUND_SIZE
+	MOV AX, WORD PTR [BX][SI]
+	MOV WORD PTR SOUND_LEFT, AX
+	MOV AL, BYTE PTR SOUND_TAIL
+	INC AL
+	CMP AL, SOUND_QUEUE_LEN
+	JNE timer0_QUEUE_NO_OVERFLOW
+
+	MOV AL, 0
+
+timer0_QUEUE_NO_OVERFLOW:
+
+	MOV BYTE PTR SOUND_TAIL, AL
+	JMP T0_NEXT1
+
+timer0_ACTION_PROCEED:
+
+	DEC WORD PTR SOUND_LEFT
+
+	MOV SI, WORD PTR SOUND_ADDR[0]
+	MOV DI, WORD PTR SOUND_ADDR[2]
+
+	; SI - Intra-segment address, DI - Segment address
+	ADD DI, 8H
+	SHL DI, 12
+
+	; Set extra segment to point to 8000H, the starting segment of the EEPROM
+	MOV DS, DI
+
+	; Get byte from EEPROM address space
+	MOV AL, [SI]
+
+	; Put byte to DAC
+	MOV DX, PCS4_ADDR
+	OUT DX, AL
+
+	; Increment EEPROM address to move to the next sample
+	MOV AX, DATA_SEG
+	MOV DS, AX
+
+	INC WORD PTR SOUND_ADDR[0]
+	JNZ T0_NEXT1
+
+	; Increment memory segment
+	INC WORD PTR SOUND_ADDR[2]
+
+;---------------------------------------------
+
+
+	DEC	DS:T0_COUNT
+	JNZ	T0_NEXT1
+	MOV	AL,DS:T0_COUNT_SET
+	MOV	DS:T0_COUNT,AL
+
+T0_NEXT1:
+;T0_NEXT1:
+	POP	CX
+	POP	BX
+	POP	DS
+	POP AX
+	RET
+TIMER0_ACTION	ENDP
+
+;--------------------------------------------------------------
+
+;--------------------TIMER 1 ----------------------------------
+
+TIMER1_ACTION	PROC	FAR
+		PUSH	AX
+		PUSH	DS
+		PUSH	BX
+		PUSH	CX
+
+		MOV	AX,DATA_SEG
+		MOV	DS,AX
+
+		DEC	DS:T1_COUNT
+		JNZ	T1_NEXT1
+		MOV	AL,DS:T1_COUNT_SET
+		MOV	DS:T1_COUNT,AL
+
+		MOV	CX,20
+		MOV	BX,0H
+T1_NEXT0:
+		MOV	AL,DS:TIMER1_MESS[BX]
+		INC	BX
+		CALL 	FAR PTR PRINT_CHAR
+		LOOP	T1_NEXT0
+
+T1_NEXT1:	
+		POP	CX
+		POP	BX
+		POP	DS
+		POP 	AX
+		RET
+TIMER1_ACTION	ENDP
+
+;--------------------------------------------------------------
+
+;--------------------TIMER 2 ----------------------------------
+
+
+TIMER2_ACTION	PROC	FAR
+		PUSH	AX
+		PUSH	DS
+		PUSH	BX
+		PUSH	CX
+
+		XOR AX, AX
+		XOR BX, BX
+
+
+;----------------------------
+		;AD0 - AD5 PCS3 CS for 7-segment
+		;7  6  5  4  3  2  1  0
+		;x  x  A5 A4 A3 A2 A1 A0
+		MOV DX, PCS3_ADDR
+		MOV AL, LED_SELECT
+		;MOV AL, 00111110B
+		OUT DX, AL
+		ROL LED_SELECT, 01H
+
+		;AD0 - AD7 PCS2
+		;AD7 - DOT (MSB)
+
+		MOV DX, PCS2_ADDR
+		MOV BL, CURRENT_NUMBER
+		MOV AL, BARCODE[BX]
+		;MOV AL, 01111111B
+		OUT DX, AL
+		INC CURRENT_NUMBER
+		CMP CURRENT_NUMBER, 08H
+		JE RESET_CURRENT
+		JNE T2_NEXT1
+;---------------------------
+		DEC	DS:T2_COUNT
+		JNZ	T2_NEXT1
+		MOV	AL,DS:T2_COUNT_SET
+		MOV	DS:T2_COUNT,AL
+		MOV	BX,0H
+
+RESET_CURRENT:
+		MOV CURRENT_NUMBER, 00H
+		DEC	DS:T2_COUNT
+		JNZ	T2_NEXT1
+		MOV	AL,DS:T2_COUNT_SET
+		MOV	DS:T2_COUNT,AL
+		MOV	BX,0H
+
+T2_NEXT1:
+		POP	CX
+		POP	BX
+		POP	DS
+		POP AX
+		RET
+
+TIMER2_ACTION	ENDP
+
+;--------------------------------------------------------------
+
+CODE_SEG	ENDS
+END
