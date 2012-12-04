@@ -16,7 +16,7 @@ NAME MISC
 ; or distributed without prior permission from the author.
 ;---------------------------------------------------------------------------
 
-public	print_char, print_2hex, iodefine, Set_timer0, Set_timer1, Set_timer2, disable_timer0
+public	print_char, print_2hex, iodefine, Set_timer0, Set_timer1, Set_timer2, disable_timer0, disable_serial, enable_serial
 extrn 	serial_rec_action:far, timer0_action:far, timer1_action:far, timer2_action:far
 
 INT_VEC_SEG	SEGMENT		AT 	0H
@@ -108,6 +108,37 @@ IODEFINE	ENDP
 
 
 
+DISABLE_SERIAL	PROC	FAR
+PUSH AX
+PUSH BX
+PUSH CX
+PUSH DX
+
+MOV AL, S_INT_DIS
+OUT SIER, AL
+
+POP DX
+POP CX
+POP BX
+POP AX
+DISABLE_SERIAL ENDP
+
+
+ENABLE_SERIAL PROC FAR
+
+PUSH AX
+PUSH BX
+PUSH CX
+PUSH DX
+
+MOV AL, S_INT_ENA
+OUT SIER, AL
+
+POP DX
+POP CX
+POP BX
+POP AX
+ENABLE_SERIAL ENDP
 
 
 ; ----------------Start of procedure PRINT_2HEX ------------------------
